@@ -15,9 +15,10 @@ jobs:
 
       - name: Build APK using Buildozer docker image
         run: |
-          # The key change is adding the '--warn-on-root=0' flag to prevent the  
-          # EOFError by skipping the interactive root warning prompt inside the Docker container.
-          docker run --rm -u $(id -u):$(id -g) \
+          # Fixed: Running without the '-u' flag to restore root permissions needed for the build.
+          # Added '-e CI=true' to reliably suppress the 'warn-on-root' interactive prompt,
+          # solving the original EOFError without introducing new chown errors.
+          docker run --rm -e CI=true \
             -v ${{ github.workspace }}:/home/user/app \
             kivy/buildozer \
             buildozer -v android debug --warn-on-root=0
