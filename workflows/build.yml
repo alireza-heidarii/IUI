@@ -1,35 +1,46 @@
-    name: Build Kivy APK
+name: Build Kivy APK
 
-    on:
-      push:
-        branches:
-          - main # Or your desired branch
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
-    jobs:
-      build:
-        runs-on: ubuntu-latest # Buildozer requires a Linux environment
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-        steps:
-        - uses: actions/checkout@v4
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-        - name: Set up Python
-          uses: actions/setup-python@v5
-          with:
-            python-version: '3.10-slim' # Specify your Python version
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
 
-        - name: Install Buildozer dependencies
-          run: |
-            sudo apt-get update
-            sudo apt-get install -y build-essential ccache git libncurses5:i386 libstdc++6:i386 libgtk2.0-0:i386 libpangox-1.0-0:i386 libpangoxft-1.0-0:i386
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y zip unzip libffi-dev libssl-dev autoconf automake libtool pkg-config
+        pip install Cython==0.29.36
 
-        - name: Install Buildozer
-          run: pip install buildozer
+    - name: Install Buildozer
+      run: pip install buildozer
 
-        - name: Build Android APK
-          run: buildozer android debug
+    - name: Install Android SDK & NDK using Docker (Simplest way)
+      run: |
+        sudo apt install -y docker.io
+        sudo usermod -aG docker $USER
+        newgrp docker
 
-        - name: Upload APK artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: kivy-apk
-            path: bin/*.apk # Adjust path if your APK is in a different location
+    - name: Build APK using Buildozer Docker image
+      run: |
+        docker run --rm -v "$PWD":/home/user/app \
+        kivy/buildozer \
+        buildozer -v android debug
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-apk
+        path: bin/*.apk
