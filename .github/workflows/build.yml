@@ -17,9 +17,17 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/home/user/app \
-            -e BUILDOZER_WARN_ON_ROOT=0 \
             kivy/buildozer \
-            bash -c "cd /home/user/app && yes | buildozer -v android debug"
+            bash -c '
+              cd /home/user/app
+              
+              # Patch Buildozer to auto-accept root warning in CI
+              BUILDOZER_PATH="/home/user/.venv/lib/python3.12/site-packages/buildozer/__init__.py"
+              sed -i "/cont = input/c\                cont = \"y\"  # Auto-accept in CI" $BUILDOZER_PATH
+              
+              # Run buildozer
+              buildozer -v android debug
+            '
       
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
