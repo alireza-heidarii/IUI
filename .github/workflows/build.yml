@@ -15,10 +15,16 @@ jobs:
       
       - name: Build APK using Buildozer docker image
         run: |
-          echo "y" | docker run --rm -i \
+          docker run --rm \
             -v ${{ github.workspace }}:/home/user/app \
             kivy/buildozer \
-            bash -c "cd /home/user/app && buildozer -v android debug"
+            bash -c '
+              # Change ownership of the app directory to the user account
+              chown -R user:user /home/user/app
+              
+              # Switch to non-root user and run buildozer
+              su - user -c "cd /home/user/app && buildozer -v android debug"
+            '
       
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
