@@ -10,18 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Build APK using Buildozer docker image
-      run: |
-        docker run --rm \
-          -v ${{ github.workspace }}:/home/user/app \
-          kivy/buildozer \
-          buildozer -v android debug
+      - name: Build APK using Buildozer docker image
+        run: |
+          # The key change is adding the '--warn-on-root=0' flag to prevent the  
+          # EOFError by skipping the interactive root warning prompt inside the Docker container.
+          docker run --rm \
+            -v ${{ github.workspace }}:/home/user/app \
+            kivy/buildozer \
+            buildozer -v android debug --warn-on-root=0
 
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: apk
-        path: bin/*.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: bin/*.apk
