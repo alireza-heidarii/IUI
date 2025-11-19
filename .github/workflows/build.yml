@@ -8,21 +8,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+      
       - name: Build APK using Buildozer docker image
         run: |
-          # Fixed: Running without the '-u' flag to restore root permissions needed for the build.
-          # Added '-e CI=true' to reliably suppress the 'warn-on-root' interactive prompt,
-          # solving the original EOFError without introducing new chown errors.
-          docker run --rm -e CI=true \
+          docker run --rm \
             -v ${{ github.workspace }}:/home/user/app \
+            -e BUILDOZER_WARN_ON_ROOT=0 \
             kivy/buildozer \
-            buildozer -v android debug --warn-on-root=0
-
+            bash -c "cd /home/user/app && yes | buildozer -v android debug"
+      
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
