@@ -52,9 +52,5 @@ android.archs = arm64-v8a,armeabi-v7a
 
 # ------------------------------------------------
 [buildozer]
-
-# (int) Log level (0=error,1=info,2=debug)
 log_level = 2
-
-# (int) Warn if run as root
-warn_on_root = 1
+warn_on_root = 0
