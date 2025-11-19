@@ -6,52 +6,55 @@ title = Montreal Travel Companion
 # (str) Package name
 package.name = montrealtravel
 
-# (str) Package domain (needed for android/ios packaging)
+# (str) Package domain
 package.domain = com.travelcompanion
 
-# (str) Source code where the main.py live
+# (str) Source code directory (DO NOT change unless main.py is inside /app)
 source.dir = .
 
-# (list) Source files to include (let empty to include all the files)
+# (list) Extensions to include
 source.include_exts = py,png,jpg,kv,atlas
 
-# (str) Application versioning (method 1)
+# (str) App version
 version = 1.0
 
-# (list) Application requirements
+# (list) Python modules to include
 requirements = python3,kivy==2.3.0,requests,plyer
 
-# (str) Supported orientation (landscape, sensorLandscape, portrait or all)
+# (str) App orientation
 orientation = portrait
 
-# (bool) Indicate if the application should be fullscreen or not
+# (bool) Fullscreen or not
 fullscreen = 0
 
-# (list) Permissions
+# (list) Android Permissions
 android.permissions = INTERNET,ACCESS_FINE_LOCATION,ACCESS_COARSE_LOCATION
 
-# (int) Target Android API, should be as high as possible.
+# --- Android Build Settings ---
+
+# (int) Target Android API
 android.api = 33
 
-# (int) Minimum API your APK will support.
+# (int) Minimum supported Android API
 android.minapi = 21
 
-# (str) Android NDK version to use
-android.ndk = 25b
+# ⚠️ MUST USE NDK 23b OR CI WILL FAIL
+android.ndk = 23b
 
-# (bool) Use --private data storage (True) or --dir public storage (False)
+# (bool) Use --private internal storage
 android.private_storage = True
 
-# (str) Android logcat filters to use
+# (str) Logcat filters
 android.logcat_filters = *:S python:D
 
-# (str) The Android arch to build for
+# (list) Architectures to build for
 android.archs = arm64-v8a,armeabi-v7a
 
+# ------------------------------------------------
 [buildozer]
 
-# (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
+# (int) Log level (0=error,1=info,2=debug)
 log_level = 2
 
-# (int) Display warning if buildozer is run as root (0 = False, 1 = True)
+# (int) Warn if run as root
 warn_on_root = 1
