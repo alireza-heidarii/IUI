@@ -17,11 +17,10 @@ jobs:
         run: |
           # The key change is adding the '--warn-on-root=0' flag to prevent the  
           # EOFError by skipping the interactive root warning prompt inside the Docker container.
-          docker run --rm \
-              -v ${{ github.workspace }}:/home/user/app \
-              -e BUILDOZER_WARN_ROOT=0 \
-              kivy/buildozer \
-              buildozer -v android debug
+          docker run --rm -u $(id -u):$(id -g) \
+            -v ${{ github.workspace }}:/home/user/app \
+            kivy/buildozer \
+            buildozer -v android debug --warn-on-root=0
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
