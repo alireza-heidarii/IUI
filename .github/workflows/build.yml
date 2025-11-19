@@ -17,13 +17,34 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/home/user/app \
+            --entrypoint /bin/bash \
             kivy/buildozer \
-            bash -c '
-              # Change ownership of the app directory to the user account
-              chown -R user:user /home/user/app
+            -c '
+              # Patch buildozer using Python
+              python3 << "PYEOF"
+import re
+
+buildozer_path = "/home/user/.venv/lib/python3.12/site-packages/buildozer/__init__.py"
+
+with open(buildozer_path, "r") as f:
+    content = f.read()
+
+# Replace the input line with auto-accept
+content = re.sub(
+    r"cont = input\([^)]+\)",
+    "cont = \"y\"  # CI auto-accept",
+    content
+)
+
+with open(buildozer_path, "w") as f:
+    f.write(content)
+
+print("✓ Buildozer patched successfully")
+PYEOF
               
-              # Switch to non-root user and run buildozer
-              su - user -c "cd /home/user/app && buildozer -v android debug"
+              # Run buildozer
+              cd /home/user/app
+              buildozer -v android debug
             '
       
       - name: Upload APK artifact
