@@ -1,36 +1,184 @@
-name: Build Kivy APK
+name: Build Android APK
 
 on:
-  workflow_dispatch:
   push:
-    branches: ["main"]
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allows manual triggering
+
+env:
+  APP_NAME: MontrealTravelCompanion
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Build APK using Buildozer docker image
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install system dependencies
         run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/home/user/app \
-            kivy/buildozer \
-            bash -c '
-              cd /home/user/app
-              
-              # Patch Buildozer to auto-accept root warning in CI
-              BUILDOZER_PATH="/home/user/.venv/lib/python3.12/site-packages/buildozer/__init__.py"
-              sed -i "/cont = input/c\                cont = \"y\"  # Auto-accept in CI" $BUILDOZER_PATH
-              
-              # Run buildozer
-              buildozer -v android debug
-            '
-      
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            automake \
+            gettext \
+            libltdl-dev
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install buildozer cython==0.29.36
+          pip install kivy==2.3.0 kivymd==1.2.0
+
+      - name: Create requirements.txt if not exists
+        run: |
+          if [ ! -f requirements.txt ]; then
+            cat > requirements.txt << EOF
+          kivy==2.3.0
+          kivymd==1.2.0
+          requests
+          certifi
+          urllib3
+          charset-normalizer
+          idna
+          websocket-client
+          plyer
+          EOF
+          fi
+
+      - name: Build APK with Buildozer
+        run: |
+          # Accept Android SDK licenses
+          yes | buildozer android debug 2>&1 | tee build.log || true
+          
+          # Check if APK was created
+          if [ -f bin/*.apk ]; then
+            echo "APK built successfully!"
+            ls -la bin/
+          else
+            echo "Build may have failed, checking logs..."
+            tail -100 build.log
+            # Try once more
+            buildozer android debug
+          fi
+
+      - name: List build artifacts
+        run: |
+          echo "=== Build directory contents ==="
+          ls -la bin/ || echo "No bin directory"
+          echo "=== APK files ==="
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: apk
+          name: ${{ env.APP_NAME }}-debug-apk
           path: bin/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            build.log
+            .buildozer/android/platform/build-*/build.log
+          retention-days: 7
+
+  # Optional: Create release when a tag is pushed
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-debug-apk
+          path: ./apk
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          files: ./apk/*.apk
+          body: |
+            ## Montreal Travel Companion ${{ steps.get_version.outputs.VERSION }}
+            
+            ### Features
+            - Context-aware travel recommendations
+            - Real-time weather integration
+            - Location-based suggestions
+            - WebSocket notifications
+            
+            ### Installation
+            1. Download the APK file
+            2. Enable "Install from unknown sources" on your Android device
+            3. Install the APK
+            
+            ### Requirements
+            - Android 5.0 (API 21) or higher
+            - Internet connection
+            - Location permissions for GPS features
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
