@@ -79,6 +79,10 @@ fullscreen = 0
 # olive, purple, silver, teal.
 android.presplash_color = #3F51B5
 
+# (bool) If True, the app will use the device's native keyboard
+# This is set via the Kivy config in main.py, but this ensures the manifest is correct
+android.keyboard = native
+
 # (string) Presplash animation using Lottie format.
 # see https://lottiefiles.com/ for more info
 #android.presplash_lottie = 
