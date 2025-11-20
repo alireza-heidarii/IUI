@@ -1,3 +1,29 @@
+# Montreal Travel Companion - Python Dependencies
+
+# Kivy Framework
 kivy==2.3.0
-requests==2.31.0
-plyer==2.1.0
+kivymd==1.2.0
+
+# HTTP Requests
+requests>=2.31.0
+certifi>=2023.7.22
+urllib3>=2.0.0
+charset-normalizer>=3.0.0
+idna>=3.4
+
+# WebSocket for real-time notifications
+websocket-client>=1.6.0
+
+# Device features (GPS, etc.)
+plyer>=2.1.0
+
+# Server dependencies (if running server locally)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+httpx>=0.25.0
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+
+# Build tools (development only)
+# buildozer>=1.5.0
+# cython==0.29.36
