@@ -13,9 +13,17 @@ import requests
 
 # --- 1. Environment Configuration ---
 from kivy.config import Config
+
+# Use native keyboard on mobile devices (must be set before importing other kivy modules)
+Config.set('kivy', 'keyboard_mode', '')  # Empty string = use system keyboard
+Config.set('kivy', 'keyboard_layout', '')
 Config.set('kivy', 'log_level', 'info')
-Config.set('kivy', 'keyboard_mode', 'systemanddock')
-Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+
+# Desktop-specific settings
+from kivy.utils import platform
+if platform not in ('android', 'ios'):
+    Config.set('kivy', 'keyboard_mode', 'systemanddock')
+    Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 # --- 2. Critical Font Fix (Robust Version) ---
 from kivy.core.text import LabelBase
@@ -93,6 +101,12 @@ except ImportError:
 # On Android, the window automatically uses the full screen
 if platform not in ('android', 'ios'):
     Window.size = (400, 800)
+else:
+    # On mobile, configure soft keyboard behavior
+    # 'pan' mode moves the window up when keyboard appears
+    # 'below_target' resizes the window to fit above keyboard
+    from kivy.core.window import Window
+    Window.softinput_mode = 'below_target'
 
 # API URL Configuration
 # ============================================================
