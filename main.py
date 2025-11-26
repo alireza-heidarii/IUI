@@ -115,15 +115,15 @@ else:
 # WS_BASE_URL = "ws://localhost:8000"
 
 # For ANDROID EMULATOR:
-# API_BASE_URL = "http://10.0.2.2:8000"
-# WS_BASE_URL = "ws://10.0.2.2:8000"
+API_BASE_URL = "http://10.0.2.2:8000"
+WS_BASE_URL = "ws://10.0.2.2:8000"
 
 # For PHYSICAL ANDROID DEVICE (replace with your Windows IP):
 # 1. Open PowerShell on Windows and run: ipconfig
 # 2. Find your Wi-Fi adapter's IPv4 Address (e.g., 192.168.1.105)
 # 3. Replace the IP below with your IP
-API_BASE_URL = "http://192.168.2.18:8000"
-WS_BASE_URL = "ws://192.168.2.18:8000"
+#API_BASE_URL = "http://192.168.2.18:8000"
+#WS_BASE_URL = "ws://192.168.2.18:8000"
 # ============================================================
 
 
@@ -1359,3 +1359,4 @@ class MontrealCompanionApp(MDApp):
 
 if __name__ == '__main__':
     MontrealCompanionApp().run()
+
