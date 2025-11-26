@@ -1617,8 +1617,6 @@ class MainScreen(MDScreen):
                 
         except requests.exceptions.ConnectionError:
             Clock.schedule_once(lambda dt: self.show_error("Cannot connect to server"), 0)
-        except Exception as e:
-            Clock.schedule_once(lambda dt: self.show_error(str(e)), 0)
     
     def update_ui(self, data):
         app = App.get_running_app()
