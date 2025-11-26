@@ -266,7 +266,7 @@ ACTIVITY_CATEGORIES = {
 			"marina", "theme park"
 		],
 		"night": [
-			"marina", "tourist attraction", "scenic viewpoint"
+			"night club", "casino"
 		]
 	}
 }
@@ -482,19 +482,50 @@ async def search_places_nearby(
 
 
 def build_google_search_query(preferences: UserPreferences, meal_type: Optional[str] = None) -> List[str]:
-	"""Build Google Places search query based on user preferences"""
+	"""
+	Build Google Places search query based on user preferences
+	IMPROVED: Only returns restaurant/cafe queries when it's meal time
+	"""
 	search_terms = []
 	
-	# Add cuisine preferences for restaurants
-	if meal_type and preferences.preferred_cuisines:
-		for cuisine in preferences.preferred_cuisines:
-			if cuisine in CUISINE_CATEGORIES:
-				search_terms.append(CUISINE_CATEGORIES[cuisine])
-	
-	# Add general restaurant terms if it's meal time
+	# Only search for restaurants/cafes if it's actually meal time
 	if meal_type:
-		search_terms.extend(["restaurant", "cafe", "dining"])
+		# Add cuisine-specific searches if user has preferences
+		if preferences.preferred_cuisines:
+			for cuisine in preferences.preferred_cuisines:
+				if cuisine in CUISINE_CATEGORIES:
+					search_terms.append(CUISINE_CATEGORIES[cuisine])
+		
+		# Add general restaurant/cafe terms for meal time
+		# These ensure we get food options even if no specific cuisine is preferred
+		if meal_type == "breakfast":
+			search_terms.extend([
+				"breakfast restaurant", 
+				"cafe", 
+				"coffee shop", 
+				"brunch restaurant", 
+				"bakery",
+				"breakfast diner"
+			])
+		elif meal_type == "lunch":
+			search_terms.extend([
+				"lunch restaurant", 
+				"restaurant", 
+				"bistro", 
+				"cafe",
+				"fast food",
+				"deli"
+			])
+		elif meal_type == "dinner":
+			search_terms.extend([
+				"dinner restaurant", 
+				"restaurant", 
+				"fine dining", 
+				"steakhouse",
+				"gastropub"
+			])
 	
+	# Return empty list if not meal time - no restaurant searches
 	return search_terms
 
 
@@ -780,92 +811,65 @@ async def generate_recommendations(
 	weather_data: dict
 ) -> List[Recommendation]:
 	"""
-	Enhanced recommendation engine - returns at least 10 diverse recommendations
-	Filters based on meal times and user preferences
+	Enhanced recommendation engine with better meal/activity separation
+	IMPROVED: Clearer separation between meal and activity recommendations
 	"""
 	recommendations = []
 	
-	# Restaurant recommendations if meal time
+	# Check if it's meal time
 	meal_type = get_meal_type(current_hour, preferences.meal_times)
-	if meal_type and preferences.preferred_cuisines:
+	is_meal_time = meal_type is not None
+	
+	# PART 1: Restaurant recommendations (ONLY if meal time)
+	if is_meal_time:
 		logger.info(f"Meal time detected: {meal_type}")
 		
-		# Build search query based on preferences
+		# Build restaurant/cafe search query
 		restaurant_search_terms = build_google_search_query(preferences, meal_type)
 		
 		if restaurant_search_terms:
 			try:
+				logger.info(f"Searching for restaurants: {restaurant_search_terms}")
 				restaurants = await search_places_nearby(
 					location.latitude,
 					location.longitude,
 					restaurant_search_terms,
-					limit=30  # Increased limit to get more options
+					limit=30
 				)
 				
-				# Enhanced filtering by cuisine preferences and meal type
-				logger.info(f"Filtering {len(restaurants)} restaurants for meal: {meal_type}, cuisines: {preferences.preferred_cuisines}")
-				filtered_restaurants = []
-				
-				for r in restaurants:
-					# Check cuisine match
-					cuisine_match = any(
-						cuisine.lower() in r["name"].lower() or
-						any(cuisine.lower() in cat.lower() for cat in r.get("categories", []))
-						for cuisine in preferences.preferred_cuisines
-					)
-					
-					# Check if restaurant type matches meal time
-					categories_str = " ".join(r.get("categories", [])).lower()
-					name_lower = r["name"].lower()
-					
-					# Meal type filtering
-					if meal_type == "breakfast":
-						meal_match = any(word in name_lower or word in categories_str 
-										for word in ["breakfast", "cafe", "coffee", "brunch", "bakery"])
-					elif meal_type == "lunch":
-						meal_match = True  # Most restaurants serve lunch
-					elif meal_type == "dinner":
-						meal_match = not any(word in name_lower or word in categories_str 
-										   for word in ["breakfast", "cafe only", "coffee shop"])
-					else:
-						meal_match = True
-					
-					if cuisine_match and meal_match:
-						filtered_restaurants.append(r)
-						logger.info(f"  ✓ Matched: {r['name']} (cuisine + meal type)")
-					elif cuisine_match:
-						filtered_restaurants.append(r)
-						logger.info(f"  ✓ Matched: {r['name']} (cuisine only)")
-				
-				# Use filtered list if available, otherwise use all
-				if filtered_restaurants:
-					restaurants = filtered_restaurants
-					logger.info(f"Using {len(filtered_restaurants)} filtered restaurants")
-				else:
-					logger.warning(f"No strict matches, using all {len(restaurants)} results")
-				
-				# Add restaurants to recommendations (up to 8 for variety)
+				# Filter and add restaurants
 				for restaurant in restaurants[:8]:
-					recommendations.append(Recommendation(
-						name=restaurant["name"],
-						type="restaurant",
-						description=", ".join(restaurant["categories"][:3]),
-						address=restaurant["address"],
-						reason=f"Perfect for {meal_type} - {', '.join(preferences.preferred_cuisines)} cuisine",
-						distance=restaurant["distance"],
-						latitude=restaurant["latitude"],
-						longitude=restaurant["longitude"],
-						rating=restaurant.get("rating")
-					))
+					# Additional filtering to ensure it's actually a restaurant/cafe
+					categories_str = " ".join(restaurant.get("categories", [])).lower()
+					name_lower = restaurant["name"].lower()
+					
+					# Make sure it's food-related
+					is_food_place = any(term in categories_str or term in name_lower 
+									   for term in ["restaurant", "cafe", "food", "dining", 
+									               "bakery", "bistro", "eatery", "coffee"])
+					
+					if is_food_place:
+						cuisine_desc = ", ".join(preferences.preferred_cuisines) if preferences.preferred_cuisines else "Various"
+						recommendations.append(Recommendation(
+							name=restaurant["name"],
+							type="restaurant",
+							description=", ".join(restaurant["categories"][:3]),
+							address=restaurant["address"],
+							reason=f"Perfect for {meal_type} - {cuisine_desc} cuisine",
+							distance=restaurant["distance"],
+							latitude=restaurant["latitude"],
+							longitude=restaurant["longitude"],
+							rating=restaurant.get("rating")
+						))
 					
 			except HTTPException as e:
 				logger.error(f"Error fetching restaurants: {e.detail}")
 	
-	# Activity recommendations
-	if 4 <= current_hour <= 24 or current_hour < 2:
+	# PART 2: Activity recommendations (ONLY if NOT meal time or if we need more recommendations)
+	if not is_meal_time or len(recommendations) < 10:
 		time_key = get_time_period_key(current_hour)
 		
-		# Get activity search terms based on preferences, time, and weather
+		# Get activity search terms (excludes restaurants when not meal time)
 		activity_search_terms = get_activity_search_terms(
 			preferences.activity_type,
 			time_key,
@@ -873,56 +877,60 @@ async def generate_recommendations(
 			weather_data["temperature"]
 		)
 		
-		time_based = get_suitable_activities_by_time(current_hour, preferences.activity_type)
-		reason = time_based["reason"]
-		
-		# Add weather context to reason for outdoor activities
-		if preferences.activity_type == "outdoor":
-			if not is_outdoor_suitable(weather_data["weather"], weather_data["temperature"]):
-				reason += " (showing indoor alternatives due to weather)"
-			else:
-				reason += f" (weather: {weather_data['weather']}, {weather_data['temperature']}°C)"
-		
 		if activity_search_terms:
 			try:
-				# Request more activities to ensure diversity
+				logger.info(f"Searching for activities (non-food): {activity_search_terms}")
 				activities = await search_places_nearby(
 					location.latitude,
 					location.longitude,
 					activity_search_terms,
-					limit=30  # Increased limit
+					limit=30
 				)
 				
-				# Diversify by type - get different types of activities
-				seen_types = set()
-				diverse_activities = []
-				
+				# Filter out any restaurants that might have slipped through
 				for activity in activities:
-					activity_type = activity["categories"][0] if activity["categories"] else "activity"
+					categories_str = " ".join(activity.get("categories", [])).lower()
+					name_lower = activity["name"].lower()
 					
-					# Add if we haven't seen this type yet or we need more
-					if activity_type not in seen_types or len(diverse_activities) < 10:
-						diverse_activities.append(activity)
-						seen_types.add(activity_type)
-				
-				# Add up to 10 diverse activities
-				for activity in diverse_activities[:10]:
-					recommendations.append(Recommendation(
-						name=activity["name"],
-						type=activity["categories"][0] if activity["categories"] else "activity",
-						description=", ".join(activity["categories"][:3]),
-						address=activity["address"],
-						reason=reason,
-						distance=activity["distance"],
-						latitude=activity["latitude"],
-						longitude=activity["longitude"],
-						rating=activity.get("rating")
-					))
+					# Exclude if it's primarily a food place
+					is_food_place = any(term in categories_str or term in name_lower 
+									   for term in ["restaurant", "cafe", "dining", "cuisine", 
+									               "bistro", "eatery", "food"])
+					
+					if not is_food_place:
+						# Build reason based on conditions
+						time_based = get_suitable_activities_by_time(current_hour, preferences.activity_type)
+						reason = time_based["reason"]
+						
+						if preferences.activity_type == "outdoor":
+							if not is_outdoor_suitable(weather_data["weather"], weather_data["temperature"]):
+								reason += " (showing indoor alternatives due to weather)"
+							else:
+								reason += f" (weather: {weather_data['weather']}, {weather_data['temperature']}°C)"
+						
+						recommendations.append(Recommendation(
+							name=activity["name"],
+							type=activity["categories"][0] if activity["categories"] else "activity",
+							description=", ".join(activity["categories"][:3]),
+							address=activity["address"],
+							reason=reason,
+							distance=activity["distance"],
+							latitude=activity["latitude"],
+							longitude=activity["longitude"],
+							rating=activity.get("rating")
+						))
+						
+						# Stop when we have enough recommendations
+						if len(recommendations) >= 10:
+							break
 					
 			except HTTPException as e:
 				logger.error(f"Error fetching activities: {e.detail}")
 	
-	logger.info(f"Returning {len(recommendations)} total recommendations")
+	logger.info(f"Returning {len(recommendations)} total recommendations: "
+				f"{sum(1 for r in recommendations if r.type == 'restaurant')} restaurants, "
+				f"{sum(1 for r in recommendations if r.type != 'restaurant')} activities")
+	
 	return recommendations
 
 
@@ -1400,7 +1408,7 @@ async def root():
 			"Notification history tracking",
 			"Manual context override for testing",
 			"Smart outdoor/indoor activity filtering based on weather",
-			"Preference-based Google API queries"
+			"Improved meal/activity separation in search queries"
 		],
 		"api_keys_configured": {
 			"openweather": bool(OPENWEATHER_API_KEY),
@@ -1413,9 +1421,9 @@ async def root():
 			"notification_history_endpoint": "/api/notifications/{user_id}"
 		},
 		"improvements": {
-			"category_names": "Using descriptive category names instead of codes",
-			"smart_filtering": "Outdoor activities filtered by time AND weather, indoor by time only",
-			"preference_queries": "Google API queries built from user cuisine preferences",
+			"search_separation": "Clear separation between meal and activity searches",
+			"smart_filtering": "Restaurants only during meal times, activities only during non-meal times",
+			"preference_queries": "Targeted Google API queries based on context",
 			"weather_aware": "Intelligent activity suggestions based on weather conditions"
 		},
 		"documentation": "/docs"
@@ -1459,6 +1467,7 @@ async def startup_event():
 	logger.info(f"Location Threshold: {LOCATION_CHANGE_THRESHOLD_KM} km")
 	logger.info(f"Temperature Threshold: {TEMPERATURE_CHANGE_THRESHOLD_C}°C")
 	logger.info(f"Outdoor Temperature Range: {OUTDOOR_MIN_TEMP_C}°C to {OUTDOOR_MAX_TEMP_C}°C")
+	logger.info("Search Query Separation: ✓ Enabled (Meal vs Activity)")
 	logger.info("="*50)
 	
 	if not OPENWEATHER_API_KEY:
@@ -1486,6 +1495,7 @@ if __name__ == "__main__":
 	print(f"  - Outdoor Temperature Range: {OUTDOOR_MIN_TEMP_C}°C to {OUTDOOR_MAX_TEMP_C}°C")
 	print(f"  - Montreal Area Validation: Enabled")
 	print(f"  - Smart Activity Filtering: Enabled (weather-aware)")
+	print(f"  - Search Query Separation: Enabled (Meal vs Activity)")
 	print("="*50)
 	
 	if not GOOGLE_PLACES_API_KEY:
