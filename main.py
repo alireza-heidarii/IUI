@@ -67,11 +67,9 @@ from kivymd.uix.widget import MDWidget
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.toolbar import MDTopAppBar
 from kivymd.uix.snackbar import Snackbar
-from kivymd.uix.chip import MDChip
 from kivymd.uix.list import MDList, TwoLineAvatarIconListItem, IconLeftWidget, IconRightWidget
 from kivymd.uix.floatlayout import MDFloatLayout
 from kivymd.uix.relativelayout import MDRelativeLayout
-from kivymd.uix.spinner import MDSpinner
 
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
@@ -388,14 +386,18 @@ class BeautifulRecommendationCard(MDCard):
         # Rating badge
         rating = self.rec_data.get('rating')
         if rating:
-            rating_chip = MDChip(
-                text=f"⭐ {rating}",
-                size_hint=(None, None),
-                height=dp(24),
-                md_bg_color=COLORS['warning'],
-                text_color=(0, 0, 0, 0.87)
+            rating_box = MDBoxLayout(
+                size_hint_x=None,
+                width=dp(60)
             )
-            header.add_widget(rating_chip)
+            rating_box.add_widget(MDLabel(
+                text=f"⭐ {rating}",
+                font_size=sp(13),
+                bold=True,
+                theme_text_color='Custom',
+                text_color=COLORS['text_primary']
+            ))
+            header.add_widget(rating_box)
         else:
             header.add_widget(MDWidget())  # Spacer
         
@@ -414,14 +416,15 @@ class BeautifulRecommendationCard(MDCard):
             categories = [cat.strip() for cat in description.split(',')[:3]]
             for cat in categories:
                 if cat and cat != 'Unknown':
-                    chip = MDChip(
-                        text=cat.replace('_', ' ').title(),
-                        size_hint=(None, None),
-                        height=dp(22),
-                        md_bg_color=(1, 1, 1, 0.3),
-                        text_color=COLORS['text_primary']
+                    tag_label = MDLabel(
+                        text=f"[{cat.replace('_', ' ').title()}]",
+                        font_size=sp(11),
+                        theme_text_color='Custom',
+                        text_color=COLORS['text_secondary'],
+                        size_hint_x=None,
+                        width=dp(len(cat) * 8 + 16)
                     )
-                    tags_box.add_widget(chip)
+                    tags_box.add_widget(tag_label)
             
             tags_box.add_widget(MDWidget())  # Fill remaining space
             container.add_widget(tags_box)
@@ -849,8 +852,7 @@ class PreferencesScreen(MDScreen):
         
         self.user_id_input = MDTextField(
             hint_text="Enter your username",
-            mode="fill",
-            fill_color=(1, 1, 1, 0.9),
+            mode="rectangle",
             text="traveler1",
             font_size=get_responsive_font(16),
             size_hint_x=1
@@ -1098,10 +1100,11 @@ class PreferencesScreen(MDScreen):
     
     def show_loading(self):
         """Show loading dialog."""
+        progress = MDProgressBar(type="indeterminate")
         self.loading_dialog = MDDialog(
             text="Saving your preferences...",
             type="custom",
-            content_cls=MDSpinner(size_hint=(None, None), size=(dp(46), dp(46)))
+            content_cls=progress
         )
         self.loading_dialog.open()
     
