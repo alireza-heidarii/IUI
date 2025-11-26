@@ -1,7 +1,7 @@
 """
 Montreal Travel Companion - Android App Client
-Production UI with Real API Integration + WebSocket Notifications
-RESPONSIVE VERSION - Adapts to all screen sizes
+ENTERPRISE PRODUCTION VERSION with Enhanced UI/UX
+Professional Design System | Polished Components | Accessibility-First
 """
 
 import os
@@ -14,18 +14,16 @@ import requests
 # --- 1. Environment Configuration ---
 from kivy.config import Config
 
-# Use native keyboard on mobile devices (must be set before importing other kivy modules)
-Config.set('kivy', 'keyboard_mode', '')  # Empty string = use system keyboard
+Config.set('kivy', 'keyboard_mode', '')
 Config.set('kivy', 'keyboard_layout', '')
 Config.set('kivy', 'log_level', 'info')
 
-# Desktop-specific settings
 from kivy.utils import platform
 if platform not in ('android', 'ios'):
     Config.set('kivy', 'keyboard_mode', 'systemanddock')
     Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
-# --- 2. Critical Font Fix (Robust Version) ---
+# --- 2. Critical Font Fix ---
 from kivy.core.text import LabelBase
 try:
     import kivymd
@@ -45,8 +43,6 @@ try:
     if font_path:
         LabelBase.register(name='MaterialIcons', fn_regular=font_path)
         LabelBase.register(name='Icon', fn_regular=font_path)
-    else:
-        print(f"[WARNING] Could not find icon font in {base_path}/fonts/")
 
 except ImportError:
     print("[CRITICAL] KivyMD is not installed. Please run: pip install kivymd")
@@ -56,7 +52,7 @@ from kivymd.app import MDApp
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.screenmanager import MDScreenManager
 from kivymd.uix.label import MDLabel
-from kivymd.uix.button import MDRaisedButton, MDRectangleFlatButton, MDIconButton
+from kivymd.uix.button import MDRaisedButton, MDRectangleFlatButton, MDIconButton, MDFillRoundFlatButton
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.card import MDCard
@@ -68,12 +64,14 @@ from kivymd.uix.widget import MDWidget
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.toolbar import MDTopAppBar
 from kivymd.uix.snackbar import Snackbar
+from kivymd.uix.spinner import MDSpinner
 
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
 from kivy.clock import Clock
 from kivy.properties import StringProperty, NumericProperty, DictProperty, ListProperty, BooleanProperty
-from kivy.utils import platform
+from kivy.animation import Animation
+from kivy.graphics import Color, Ellipse, Rectangle, Line, Triangle
 from kivy.app import App
 
 # --- 4. Setup ---
@@ -89,6 +87,17 @@ try:
 except ImportError:
     GPS_AVAILABLE = False
 
+# Android Intents for Google Maps (only on Android)
+if platform == 'android':
+    try:
+        from jnius import autoclass, cast
+        ANDROID_INTENTS_AVAILABLE = True
+    except ImportError:
+        ANDROID_INTENTS_AVAILABLE = False
+        logger.warning("pyjnius not available - Android intents disabled")
+else:
+    ANDROID_INTENTS_AVAILABLE = False
+
 # WebSocket Support
 try:
     import websocket
@@ -97,73 +106,563 @@ except ImportError:
     WEBSOCKET_AVAILABLE = False
     logger.warning("websocket-client not installed. Install with: pip install websocket-client")
 
-# --- 5. Responsive Window Size (Desktop Testing Only) ---
-# On Android, the window automatically uses the full screen
+# --- 5. Window Configuration ---
 if platform not in ('android', 'ios'):
     Window.size = (400, 800)
 else:
-    # On mobile, configure soft keyboard behavior
-    # 'pan' mode moves the window up when keyboard appears
-    # 'below_target' resizes the window to fit above keyboard
     from kivy.core.window import Window
     Window.softinput_mode = 'below_target'
 
-# API URL Configuration
-# ============================================================
-# For LOCAL TESTING (desktop):
-# API_BASE_URL = "http://localhost:8000"
-# WS_BASE_URL = "ws://localhost:8000"
-
-# For ANDROID EMULATOR:
-# API_BASE_URL = "http://10.0.2.2:8000"
-# WS_BASE_URL = "ws://10.0.2.2:8000"
-
-# For PHYSICAL ANDROID DEVICE (replace with your Windows IP):
-# 1. Open PowerShell on Windows and run: ipconfig
-# 2. Find your Wi-Fi adapter's IPv4 Address (e.g., 192.168.1.105)
-# 3. Replace the IP below with your IP
+# API Configuration
 API_BASE_URL = "http://192.168.2.18:8000"
 WS_BASE_URL = "ws://192.168.2.18:8000"
-# ============================================================
 
 
-# --- 6. Responsive Helper Functions ---
+# ============================================================================
+# DESIGN SYSTEM - Professional Color Palette & Spacing
+# ============================================================================
 
-def get_responsive_font_size(base_size):
-    """Calculate responsive font size based on screen width."""
+class DesignSystem:
+    """Enterprise Design System - Colors, Typography, Spacing"""
+    
+    # Professional Color Palette (WCAG AA Compliant) - Very Dark Jade Green
+    COLORS = {
+        # Primary Brand Colors - Very Dark Jade Green Theme
+        'primary': (0.10, 0.45, 0.37, 1),        # Very Dark Jade #1A735F
+        'primary_light': (0.18, 0.55, 0.46, 1),  # Dark Jade #2E8C75
+        'primary_dark': (0.05, 0.30, 0.25, 1),   # Ultra Dark Jade #0D4D3F
+        
+        # Accent Colors
+        'accent': (0.08, 0.40, 0.33, 1),         # Deep Dark Jade #146654
+        'accent_light': (0.22, 0.60, 0.50, 1),   # Medium Jade #38997F
+        
+        # Semantic Colors
+        'success': (0.20, 0.73, 0.45, 1),        # Green #34BA72
+        'warning': (1, 0.71, 0.20, 1),           # Orange #FFB533
+        'error': (0.96, 0.26, 0.31, 1),          # Red #F5424F
+        'info': (0.20, 0.67, 0.94, 1),           # Cyan #33ABF0
+        
+        # Neutral Colors
+        'background': (0.98, 0.98, 0.99, 1),     # Off-white
+        'surface': (1, 1, 1, 1),                 # Pure white
+        'surface_elevated': (1, 1, 1, 1),        # White with shadow
+        
+        # Text Colors
+        'text_primary': (0.13, 0.13, 0.18, 1),   # Almost Black
+        'text_secondary': (0.45, 0.47, 0.52, 1), # Gray
+        'text_hint': (0.65, 0.67, 0.71, 1),      # Light Gray
+        'text_disabled': (0.80, 0.81, 0.84, 1),  # Very Light Gray
+        
+        # Border Colors
+        'border': (0.90, 0.91, 0.93, 1),         # Subtle border
+        'border_focus': (0.26, 0.40, 0.96, 1),   # Focused border
+        
+        # Overlay
+        'overlay': (0, 0, 0, 0.5),               # Semi-transparent black
+        'overlay_light': (0, 0, 0, 0.08),        # Very light overlay
+    }
+    
+    # Spacing System (8pt grid)
+    SPACING = {
+        'xs': dp(4),
+        'sm': dp(8),
+        'md': dp(16),
+        'lg': dp(24),
+        'xl': dp(32),
+        'xxl': dp(48),
+    }
+    
+    # Border Radius
+    RADIUS = {
+        'sm': dp(4),
+        'md': dp(8),
+        'lg': dp(12),
+        'xl': dp(16),
+        'round': dp(999),
+    }
+    
+    # Elevation (shadow) - Enhanced for better depth perception
+    ELEVATION = {
+        'none': 0,
+        'low': 2,
+        'medium': 4,
+        'high': 8,
+        'ultra': 12,
+    }
+    
+    # Typography Scale
+    TYPOGRAPHY = {
+        'h1': sp(32),
+        'h2': sp(28),
+        'h3': sp(24),
+        'h4': sp(20),
+        'h5': sp(18),
+        'h6': sp(16),
+        'body1': sp(16),
+        'body2': sp(14),
+        'caption': sp(12),
+        'overline': sp(10),
+    }
+    
+    # Touch Targets (accessibility)
+    TOUCH_TARGET = {
+        'min': dp(48),
+        'comfortable': dp(56),
+    }
+
+
+DS = DesignSystem  # Shorthand
+
+
+# ============================================================================
+# RESPONSIVE UTILITIES
+# ============================================================================
+
+def get_responsive_value(base, breakpoints={'small': 0.85, 'large': 1.15}):
+    """Calculate responsive values based on screen width"""
     width = Window.width
     if width < 360:
-        return sp(base_size * 0.85)
-    elif width < 400:
-        return sp(base_size * 0.95)
+        return base * breakpoints.get('small', 0.85)
     elif width > 600:
-        return sp(base_size * 1.1)
-    return sp(base_size)
-
-def get_responsive_padding():
-    """Calculate responsive padding based on screen width."""
-    width = Window.width
-    if width < 360:
-        return dp(10)
-    elif width < 400:
-        return dp(12)
-    elif width > 600:
-        return dp(20)
-    return dp(15)
-
-def get_responsive_spacing():
-    """Calculate responsive spacing based on screen width."""
-    width = Window.width
-    if width < 360:
-        return dp(8)
-    elif width < 400:
-        return dp(10)
-    elif width > 600:
-        return dp(15)
-    return dp(10)
+        return base * breakpoints.get('large', 1.15)
+    return base
 
 
-# --- 7. WebSocket Notification Client ---
+# ============================================================================
+# GOOGLE MAPS NAVIGATION
+# ============================================================================
+
+def open_google_maps_navigation(latitude, longitude, place_name=""):
+    """
+    Open Google Maps with navigation to the specified location
+    Works on both Android and desktop platforms
+    """
+    try:
+        if platform == 'android':
+            # Android: Use Google Maps intent
+            from jnius import autoclass, cast
+            
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            Intent = autoclass('android.content.Intent')
+            Uri = autoclass('android.net.Uri')
+            
+            # Create navigation URI
+            # Format: google.navigation:q=latitude,longitude or q=place+name
+            if place_name:
+                # Try with place name first (more reliable)
+                uri_string = f"google.navigation:q={place_name.replace(' ', '+')}"
+            else:
+                # Fallback to coordinates
+                uri_string = f"google.navigation:q={latitude},{longitude}"
+            
+            intent = Intent(Intent.ACTION_VIEW)
+            intent.setData(Uri.parse(uri_string))
+            intent.setPackage("com.google.android.apps.maps")
+            
+            current_activity = cast('android.app.Activity', PythonActivity.mActivity)
+            current_activity.startActivity(intent)
+            
+            logger.info(f"Opened Google Maps navigation to: {place_name or f'{latitude}, {longitude}'}")
+            return True
+            
+        else:
+            # Desktop: Open Google Maps in web browser
+            import webbrowser
+            
+            if place_name:
+                # Search by place name
+                url = f"https://www.google.com/maps/dir/?api=1&destination={place_name.replace(' ', '+')}"
+            else:
+                # Search by coordinates
+                url = f"https://www.google.com/maps/dir/?api=1&destination={latitude},{longitude}"
+            
+            webbrowser.open(url)
+            logger.info(f"Opened Google Maps in browser: {url}")
+            return True
+            
+    except Exception as e:
+        logger.error(f"Error opening Google Maps: {e}")
+        return False
+
+
+def open_google_maps_location(latitude, longitude, place_name=""):
+    """
+    Open Google Maps to view a location (without navigation)
+    Alternative option for viewing the location on the map
+    """
+    try:
+        if platform == 'android':
+            from jnius import autoclass, cast
+            
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            Intent = autoclass('android.content.Intent')
+            Uri = autoclass('android.net.Uri')
+            
+            # Format: geo:latitude,longitude?q=latitude,longitude(label)
+            if place_name:
+                uri_string = f"geo:{latitude},{longitude}?q={latitude},{longitude}({place_name})"
+            else:
+                uri_string = f"geo:{latitude},{longitude}?q={latitude},{longitude}"
+            
+            intent = Intent(Intent.ACTION_VIEW)
+            intent.setData(Uri.parse(uri_string))
+            
+            current_activity = cast('android.app.Activity', PythonActivity.mActivity)
+            current_activity.startActivity(intent)
+            
+            return True
+            
+        else:
+            import webbrowser
+            
+            if place_name:
+                url = f"https://www.google.com/maps/search/?api=1&query={place_name.replace(' ', '+')}"
+            else:
+                url = f"https://www.google.com/maps/search/?api=1&query={latitude},{longitude}"
+            
+            webbrowser.open(url)
+            return True
+            
+    except Exception as e:
+        logger.error(f"Error opening Google Maps location: {e}")
+        return False
+
+
+# ============================================================================
+# ENHANCED UI COMPONENTS
+# ============================================================================
+
+class EnhancedCard(MDCard):
+    """Professional Card Component with modern design"""
+    
+    def __init__(self, title="", show_title=True, card_style='elevated', **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'vertical'
+        self.adaptive_height = True
+        self.size_hint_x = 1
+        self.size_hint_y = None
+        self.padding = DS.SPACING['md']
+        self.spacing = DS.SPACING['sm']
+        self.md_bg_color = DS.COLORS['surface']
+        
+        # Card style variations
+        if card_style == 'elevated':
+            self.elevation = DS.ELEVATION['medium']
+        elif card_style == 'outlined':
+            self.elevation = DS.ELEVATION['none']
+            self.line_color = DS.COLORS['border']
+        elif card_style == 'filled':
+            self.elevation = DS.ELEVATION['low']
+            self.md_bg_color = DS.COLORS['background']
+        
+        self.bind(minimum_height=self.setter('height'))
+        
+        if show_title and title:
+            title_label = MDLabel(
+                text=title,
+                font_size=DS.TYPOGRAPHY['h6'],
+                theme_text_color='Custom',
+                text_color=DS.COLORS['text_primary'],
+                size_hint_y=None,
+                height=DS.SPACING['xl'],
+                halign='left',
+                bold=True,
+                adaptive_height=True
+            )
+            self.add_widget(title_label)
+
+
+class PrimaryButton(MDRaisedButton):
+    """Primary action button with modern style"""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.md_bg_color = DS.COLORS['primary']
+        self.font_size = DS.TYPOGRAPHY['body1']
+        self.size_hint_y = None
+        self.height = DS.TOUCH_TARGET['comfortable']
+        self.elevation = DS.ELEVATION['medium']
+        
+        # Add ripple effect
+        self.ripple_duration_in_fast = 0.4
+
+
+class SecondaryButton(MDRectangleFlatButton):
+    """Secondary action button"""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.line_color = DS.COLORS['primary']
+        self.theme_text_color = 'Custom'
+        self.text_color = DS.COLORS['primary']
+        self.font_size = DS.TYPOGRAPHY['body1']
+        self.size_hint_y = None
+        self.height = DS.TOUCH_TARGET['comfortable']
+
+
+class EnhancedTextField(MDTextField):
+    """Professional text input with better styling"""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.mode = "rectangle"
+        self.size_hint_x = 1
+        self.size_hint_y = None
+        self.height = DS.TOUCH_TARGET['comfortable']
+        self.font_size = DS.TYPOGRAPHY['body1']
+        
+        # Enhanced colors
+        self.line_color_normal = DS.COLORS['border']
+        self.line_color_focus = DS.COLORS['primary']
+        self.hint_text_color_normal = DS.COLORS['text_hint']
+        self.hint_text_color_focus = DS.COLORS['primary']
+
+
+class StatusChip(MDCard):
+    """Status indicator chip"""
+    
+    def __init__(self, text="", status='info', **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'horizontal'
+        self.size_hint = (None, None)
+        self.height = dp(32)
+        self.padding = (DS.SPACING['md'], DS.SPACING['sm'])
+        self.spacing = DS.SPACING['xs']
+        self.elevation = DS.ELEVATION['none']
+        
+        # Status colors
+        status_colors = {
+            'success': DS.COLORS['success'],
+            'warning': DS.COLORS['warning'],
+            'error': DS.COLORS['error'],
+            'info': DS.COLORS['info'],
+            'neutral': DS.COLORS['text_secondary']
+        }
+        
+        bg_color = status_colors.get(status, DS.COLORS['text_secondary'])
+        self.md_bg_color = (*bg_color[:3], 0.15)  # 15% opacity
+        
+        # Status indicator dot using canvas
+        dot_widget = MDWidget(
+            size_hint=(None, None),
+            size=(dp(8), dp(8))
+        )
+        
+        with dot_widget.canvas:
+            Color(*bg_color)
+            ellipse = Ellipse(pos=dot_widget.pos, size=dot_widget.size)
+        
+        def update_dot(instance, value):
+            ellipse.pos = instance.pos
+            ellipse.size = instance.size
+        
+        dot_widget.bind(pos=update_dot, size=update_dot)
+        
+        # Text
+        label = MDLabel(
+            text=text,
+            font_size=DS.TYPOGRAPHY['caption'],
+            theme_text_color='Custom',
+            text_color=bg_color,
+            bold=True,
+            size_hint_x=None
+        )
+        label.bind(texture_size=label.setter('size'))
+        
+        self.add_widget(dot_widget)
+        self.add_widget(label)
+        
+        # Set width based on content
+        self.bind(minimum_width=self.setter('width'))
+
+
+class EnhancedNotificationBanner(MDCard):
+    """Premium notification banner with smooth animations"""
+    
+    def __init__(self, title, message, notif_type="info", on_dismiss=None, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'horizontal'
+        self.size_hint = (0.92, None)
+        self.pos_hint = {'center_x': 0.5, 'top': 1.1}  # Start off-screen
+        self.elevation = DS.ELEVATION['high']
+        self.on_dismiss_callback = on_dismiss
+        self.height = get_responsive_value(dp(90))
+        
+        # Enhanced type colors - no icons, just colors
+        type_styles = {
+            "location_change": {
+                'color': DS.COLORS['info'],
+                'light_bg': (*DS.COLORS['info'][:3], 0.15)
+            },
+            "weather_change": {
+                'color': DS.COLORS['warning'],
+                'light_bg': (*DS.COLORS['warning'][:3], 0.15)
+            },
+            "time_period_change": {
+                'color': (0.51, 0.37, 0.85, 1),
+                'light_bg': (0.51, 0.37, 0.85, 0.15)
+            },
+            "meal_time": {
+                'color': DS.COLORS['success'],
+                'light_bg': (*DS.COLORS['success'][:3], 0.15)
+            },
+            "temperature_change": {
+                'color': DS.COLORS['error'],
+                'light_bg': (*DS.COLORS['error'][:3], 0.15)
+            },
+            "preferences_updated": {
+                'color': DS.COLORS['primary'],
+                'light_bg': (*DS.COLORS['primary'][:3], 0.15)
+            },
+            "connection_established": {
+                'color': DS.COLORS['success'],
+                'light_bg': (*DS.COLORS['success'][:3], 0.15)
+            },
+        }
+        
+        style = type_styles.get(notif_type, {
+            'color': DS.COLORS['text_secondary'],
+            'light_bg': (*DS.COLORS['text_secondary'][:3], 0.15)
+        })
+        
+        self.md_bg_color = DS.COLORS['surface']
+        
+        # Left accent bar using canvas
+        accent_bar = MDWidget(
+            size_hint_x=None,
+            width=dp(4)
+        )
+        
+        with accent_bar.canvas:
+            Color(*style['color'])
+            rect = Rectangle(pos=accent_bar.pos, size=accent_bar.size)
+        
+        def update_bar(instance, value):
+            rect.pos = instance.pos
+            rect.size = instance.size
+        
+        accent_bar.bind(pos=update_bar, size=update_bar)
+        self.add_widget(accent_bar)
+        
+        # Content without icon
+        content = MDBoxLayout(
+            orientation='horizontal',
+            padding=(DS.SPACING['md'], DS.SPACING['sm']),
+            spacing=DS.SPACING['md']
+        )
+        
+        # Text content directly (no icon container)
+        text_box = MDBoxLayout(orientation='vertical', spacing=dp(2))
+        
+        # Title with better typography
+        text_box.add_widget(MDLabel(
+            text=title,
+            font_size=DS.TYPOGRAPHY['body1'],
+            bold=True,
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_primary'],
+            size_hint_y=None,
+            height=dp(24)
+        ))
+        
+        # Message with truncation
+        max_chars = 70 if Window.width < 400 else 90
+        truncated_msg = message[:max_chars] + "..." if len(message) > max_chars else message
+        
+        text_box.add_widget(MDLabel(
+            text=truncated_msg,
+            font_size=DS.TYPOGRAPHY['body2'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_secondary'],
+            size_hint_y=None,
+            height=dp(36)
+        ))
+        content.add_widget(text_box)
+        
+        # Close button with better styling
+        close_btn = MDIconButton(
+            icon="close",
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_hint'],
+            size_hint_x=None,
+            width=dp(40),
+            on_release=self.dismiss
+        )
+        content.add_widget(close_btn)
+        
+        self.add_widget(content)
+        
+        # Animate in
+        Clock.schedule_once(self.animate_in, 0.1)
+    
+    def animate_in(self, dt):
+        """Smooth slide-in animation"""
+        anim = Animation(
+            pos_hint={'center_x': 0.5, 'top': 0.98},
+            duration=0.4,
+            transition='out_cubic'
+        )
+        anim.start(self)
+    
+    def dismiss(self, *args):
+        """Smooth slide-out animation"""
+        anim = Animation(
+            opacity=0,
+            pos_hint={'center_x': 0.5, 'top': 1.1},
+            duration=0.3,
+            transition='in_cubic'
+        )
+        anim.bind(on_complete=lambda *x: self._remove())
+        anim.start(self)
+    
+    def _remove(self):
+        if self.parent:
+            self.parent.remove_widget(self)
+        if self.on_dismiss_callback:
+            self.on_dismiss_callback()
+
+
+class LoadingOverlay(MDCard):
+    """Professional loading overlay"""
+    
+    def __init__(self, message="Loading...", **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint = (None, None)
+        self.size = (dp(200), dp(120))
+        self.pos_hint = {'center_x': 0.5, 'center_y': 0.5}
+        self.md_bg_color = DS.COLORS['surface']
+        self.elevation = DS.ELEVATION['high']
+        self.padding = DS.SPACING['xl']
+        
+        layout = MDBoxLayout(
+            orientation='vertical',
+            spacing=DS.SPACING['md']
+        )
+        
+        # Spinner
+        spinner = MDSpinner(
+            size_hint=(None, None),
+            size=(dp(48), dp(48)),
+            pos_hint={'center_x': 0.5},
+            active=True
+        )
+        layout.add_widget(spinner)
+        
+        # Message
+        layout.add_widget(MDLabel(
+            text=message,
+            font_size=DS.TYPOGRAPHY['body1'],
+            halign='center',
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_secondary']
+        ))
+        
+        self.add_widget(layout)
+
+
+# ============================================================================
+# NOTIFICATION CLIENT (Unchanged)
+# ============================================================================
 
 class NotificationClient:
     """WebSocket client for receiving real-time notifications from server."""
@@ -181,7 +680,6 @@ class NotificationClient:
         self._thread = None
     
     def connect(self):
-        """Start WebSocket connection in a background thread."""
         if self._thread and self._thread.is_alive():
             logger.warning("WebSocket thread already running")
             return
@@ -192,7 +690,6 @@ class NotificationClient:
         logger.info(f"WebSocket connection thread started for user {self.user_id}")
     
     def disconnect(self):
-        """Stop WebSocket connection."""
         self._stop_flag = True
         if self.ws:
             try:
@@ -204,7 +701,6 @@ class NotificationClient:
             Clock.schedule_once(lambda dt: self.on_connection_change(False), 0)
     
     def _run_websocket(self):
-        """Main WebSocket loop running in background thread."""
         while not self._stop_flag and self.reconnect_attempts < self.max_reconnect_attempts:
             try:
                 ws_url = f"{WS_BASE_URL}/ws/notifications/{self.user_id}"
@@ -232,7 +728,6 @@ class NotificationClient:
         logger.info("WebSocket thread stopped")
     
     def _on_open(self, ws):
-        """Called when WebSocket connection is established."""
         self.connected = True
         self.reconnect_attempts = 0
         logger.info(f"WebSocket connected for user {self.user_id}")
@@ -240,7 +735,6 @@ class NotificationClient:
             Clock.schedule_once(lambda dt: self.on_connection_change(True), 0)
     
     def _on_message(self, ws, message):
-        """Called when a message is received from server."""
         try:
             data = json.loads(message)
             logger.info(f"Notification received: {data.get('type', 'unknown')}")
@@ -249,160 +743,21 @@ class NotificationClient:
             logger.error(f"Failed to parse notification: {e}")
     
     def _on_error(self, ws, error):
-        """Called when WebSocket error occurs."""
         logger.error(f"WebSocket error: {error}")
     
     def _on_close(self, ws, close_status_code, close_msg):
-        """Called when WebSocket connection is closed."""
         self.connected = False
         logger.info(f"WebSocket closed: {close_status_code} - {close_msg}")
         if self.on_connection_change:
             Clock.schedule_once(lambda dt: self.on_connection_change(False), 0)
 
 
-# --- 8. Responsive UI Components ---
-
-class ResponsiveCard(MDCard):
-    """Responsive Card Component that adapts to screen size."""
-    
-    def __init__(self, title="", show_title=True, **kwargs):
-        super().__init__(**kwargs)
-        self.orientation = 'vertical'
-        self.adaptive_height = True
-        self.size_hint_x = 1
-        self.size_hint_y = None
-        self.padding = get_responsive_padding()
-        self.spacing = get_responsive_spacing()
-        self.radius = [dp(12)]
-        self.elevation = 2
-        self.md_bg_color = [1, 1, 1, 1]
-        
-        self.bind(minimum_height=self.setter('height'))
-        
-        if show_title and title:
-            self.add_widget(MDLabel(
-                text=title,
-                font_style='H6',
-                font_size=sp(16),
-                theme_text_color='Primary',
-                size_hint_y=None,
-                height=dp(30),
-                halign='left',
-                adaptive_height=True
-            ))
-
-
-class NotificationBanner(MDCard):
-    """A responsive notification banner that appears at the top of the screen."""
-    
-    def __init__(self, title, message, notif_type="info", on_dismiss=None, **kwargs):
-        super().__init__(**kwargs)
-        self.orientation = 'horizontal'
-        self.size_hint = (0.95, None)
-        self.pos_hint = {'center_x': 0.5, 'top': 0.98}
-        self.radius = [dp(12)]
-        self.elevation = 4
-        self.on_dismiss_callback = on_dismiss
-        
-        # Responsive height
-        self.height = dp(70) if Window.width < 400 else dp(80)
-        
-        # Set color based on notification type
-        type_colors = {
-            "location_change": (0.2, 0.6, 0.9, 1),
-            "weather_change": (0.9, 0.7, 0.2, 1),
-            "time_period_change": (0.5, 0.3, 0.7, 1),
-            "meal_time": (0.3, 0.7, 0.4, 1),
-            "temperature_change": (0.9, 0.4, 0.3, 1),
-            "preferences_updated": (0.4, 0.7, 0.9, 1),
-            "connection_established": (0.3, 0.7, 0.4, 1),
-            "info": (0.5, 0.5, 0.5, 1),
-        }
-        self.md_bg_color = type_colors.get(notif_type, type_colors["info"])
-        
-        # Icon mapping
-        icon_map = {
-            "location_change": "📍",
-            "weather_change": "🌤️",
-            "time_period_change": "🕐",
-            "meal_time": "🍽️",
-            "temperature_change": "🌡️",
-            "preferences_updated": "⚙️",
-            "connection_established": "✅",
-        }
-        icon = icon_map.get(notif_type, "🔔")
-        
-        # Content layout
-        padding = dp(8) if Window.width < 400 else dp(10)
-        content = MDBoxLayout(orientation='horizontal', padding=padding, spacing=dp(8))
-        
-        # Icon
-        content.add_widget(MDLabel(
-            text=icon,
-            font_size=sp(24),
-            size_hint_x=None,
-            width=dp(35),
-            halign='center',
-            valign='center'
-        ))
-        
-        # Text content
-        text_box = MDBoxLayout(orientation='vertical', spacing=dp(2))
-        
-        # Truncate message based on screen width
-        max_chars = 60 if Window.width < 400 else 80
-        truncated_msg = message[:max_chars] + "..." if len(message) > max_chars else message
-        
-        text_box.add_widget(MDLabel(
-            text=title,
-            font_size=sp(14),
-            bold=True,
-            theme_text_color='Custom',
-            text_color=(1, 1, 1, 1),
-            size_hint_y=None,
-            height=dp(22)
-        ))
-        text_box.add_widget(MDLabel(
-            text=truncated_msg,
-            font_size=sp(12),
-            theme_text_color='Custom',
-            text_color=(1, 1, 1, 0.9),
-            size_hint_y=None,
-            height=dp(30)
-        ))
-        content.add_widget(text_box)
-        
-        # Close button
-        close_btn = MDIconButton(
-            icon="close",
-            theme_text_color='Custom',
-            text_color=(1, 1, 1, 1),
-            size_hint_x=None,
-            width=dp(35),
-            on_release=self.dismiss
-        )
-        content.add_widget(close_btn)
-        
-        self.add_widget(content)
-    
-    def dismiss(self, *args):
-        """Animate and remove the banner."""
-        from kivy.animation import Animation
-        anim = Animation(opacity=0, duration=0.3)
-        anim.bind(on_complete=lambda *x: self._remove())
-        anim.start(self)
-    
-    def _remove(self):
-        if self.parent:
-            self.parent.remove_widget(self)
-        if self.on_dismiss_callback:
-            self.on_dismiss_callback()
-
-
-# --- 9. Screen Classes ---
+# ============================================================================
+# ENHANCED SCREENS
+# ============================================================================
 
 class WelcomeScreen(MDScreen):
-    """Responsive landing screen with branding."""
+    """Premium welcome screen with modern design"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -411,85 +766,180 @@ class WelcomeScreen(MDScreen):
     def build_ui(self):
         self.clear_widgets()
         
+        # Root layout with gradient background
+        root = MDBoxLayout(orientation='vertical')
+        root.md_bg_color = DS.COLORS['primary']
+        
         layout = MDBoxLayout(
             orientation='vertical',
-            padding=get_responsive_padding() * 2,
-            spacing=get_responsive_spacing() * 2,
+            padding=DS.SPACING['xxl'],
+            spacing=DS.SPACING['xl'],
         )
         
-        # Set background color after app is running
-        Clock.schedule_once(lambda x: setattr(layout, 'md_bg_color', 
-            MDApp.get_running_app().theme_cls.primary_color if MDApp.get_running_app() else (0.3, 0.3, 0.8, 1)), 0)
-
         # Top spacer
         layout.add_widget(MDWidget(size_hint_y=0.15))
-
-        # App icon (using emoji for compatibility)
-        icon_size = sp(70) if Window.width < 400 else sp(90)
-        layout.add_widget(MDLabel(
-            text='🗺️',
-            halign='center',
-            font_size=icon_size,
-            size_hint_y=None,
-            height=dp(100)
-        ))
         
-        # App title - responsive font size
-        title_size = sp(28) if Window.width < 400 else sp(34)
-        layout.add_widget(MDLabel(
+        # Hero section
+        hero = MDBoxLayout(
+            orientation='vertical',
+            spacing=DS.SPACING['md'],
+            size_hint_y=None,
+            height=dp(250)
+        )
+        
+        # App icon with background - Stunning custom design
+        icon_container = MDCard(
+            size_hint=(None, None),
+            size=(dp(140), dp(140)),
+            pos_hint={'center_x': 0.5},
+            md_bg_color=DS.COLORS['primary'],
+            elevation=DS.ELEVATION['ultra']
+        )
+        
+        # Create custom location/compass icon using canvas
+        icon_canvas = MDWidget(size_hint=(1, 1))
+        
+        def draw_icon(widget, *args):
+            widget.canvas.clear()
+            with widget.canvas:
+                # Outer glow circle
+                Color(1, 1, 1, 0.25)
+                Ellipse(
+                    pos=(widget.x + dp(20), widget.y + dp(20)),
+                    size=(dp(100), dp(100))
+                )
+                
+                # Main white circle
+                Color(1, 1, 1, 1)
+                Ellipse(
+                    pos=(widget.x + dp(40), widget.y + dp(40)),
+                    size=(dp(60), dp(60))
+                )
+                
+                # Location pin shape
+                Color(*DS.COLORS['primary_dark'])
+                # Draw teardrop shape using lines
+                from kivy.graphics import Line
+                center_x = widget.x + dp(70)
+                center_y = widget.y + dp(70)
+                
+                # Pin circle
+                Ellipse(
+                    pos=(center_x - dp(12), center_y + dp(5)),
+                    size=(dp(24), dp(24))
+                )
+                
+                # Pin point (triangle)
+                from kivy.graphics import Triangle
+                Triangle(
+                    points=[
+                        center_x, center_y - dp(15),      # Bottom point
+                        center_x - dp(10), center_y + dp(5),  # Left
+                        center_x + dp(10), center_y + dp(5),  # Right
+                    ]
+                )
+                
+                # Center dot
+                Color(1, 1, 1, 1)
+                Ellipse(
+                    pos=(center_x - dp(5), center_y + dp(10)),
+                    size=(dp(10), dp(10))
+                )
+        
+        icon_canvas.bind(pos=draw_icon, size=draw_icon)
+        Clock.schedule_once(lambda dt: draw_icon(icon_canvas), 0)
+        
+        icon_container.add_widget(icon_canvas)
+        hero.add_widget(icon_container)
+        
+        # App title with better typography
+        hero.add_widget(MDLabel(
             text='Montreal\nTravel Companion',
-            font_size=title_size,
+            font_size=get_responsive_value(DS.TYPOGRAPHY['h1']),
             bold=True,
             halign='center',
             theme_text_color='Custom',
-            text_color=(1, 1, 1, 1),
+            text_color=DS.COLORS['surface'],
             size_hint_y=None,
             height=dp(90)
         ))
         
         # Subtitle
-        layout.add_widget(MDLabel(
+        hero.add_widget(MDLabel(
             text='Your AI-powered travel guide',
-            font_size=sp(14),
+            font_size=DS.TYPOGRAPHY['h6'],
             halign='center',
             theme_text_color='Custom',
-            text_color=(1, 1, 1, 0.8),
+            text_color=(*DS.COLORS['surface'][:3], 0.8),
             size_hint_y=None,
             height=dp(30)
         ))
         
-        # Middle spacer
-        layout.add_widget(MDWidget(size_hint_y=0.2))
+        layout.add_widget(hero)
         
-        # Start button - responsive width
-        btn_width = 0.9 if Window.width < 400 else 0.75
-        btn = MDRaisedButton(
-            text='START EXPLORING',
-            font_size=sp(16),
-            size_hint_x=btn_width,
+        # Features section
+        features = MDBoxLayout(
+            orientation='vertical',
+            spacing=DS.SPACING['sm'],
             size_hint_y=None,
-            height=dp(50),
-            pos_hint={'center_x': 0.5},
-            elevation=4,
+            height=dp(120)
+        )
+        
+        feature_items = [
+            "• Personalized Recommendations",
+            "• Weather-Aware Suggestions",
+            "• Real-Time Location Tracking"
+        ]
+        
+        for feature in feature_items:
+            features.add_widget(MDLabel(
+                text=feature,
+                font_size=DS.TYPOGRAPHY['body1'],
+                halign='center',
+                theme_text_color='Custom',
+                text_color=(*DS.COLORS['surface'][:3], 0.9),
+                size_hint_y=None,
+                height=dp(32)
+            ))
+        
+        layout.add_widget(features)
+        
+        # Spacer
+        layout.add_widget(MDWidget(size_hint_y=0.1))
+        
+        # CTA Button with enhanced styling
+        btn_container = MDBoxLayout(
+            size_hint_y=None,
+            height=DS.TOUCH_TARGET['comfortable'] + DS.SPACING['md'],
+            padding=(DS.SPACING['lg'], 0)
+        )
+        
+        btn = MDRaisedButton(
+            text='GET STARTED',
+            font_size=DS.TYPOGRAPHY['h6'],
+            size_hint_x=1,
+            size_hint_y=None,
+            height=DS.TOUCH_TARGET['comfortable'],
+            elevation=DS.ELEVATION['high'],
+            md_bg_color=DS.COLORS['primary'],
             on_release=self.go_to_preferences
         )
-        Clock.schedule_once(lambda x: setattr(btn, 'md_bg_color', 
-            MDApp.get_running_app().theme_cls.accent_color if MDApp.get_running_app() else (1, 0.4, 0.7, 1)), 0)
-        
-        layout.add_widget(btn)
+        btn_container.add_widget(btn)
+        layout.add_widget(btn_container)
         
         # Bottom spacer
-        layout.add_widget(MDWidget(size_hint_y=0.15))
+        layout.add_widget(MDWidget(size_hint_y=0.1))
         
-        self.add_widget(layout)
-
+        root.add_widget(layout)
+        self.add_widget(root)
+    
     def go_to_preferences(self, instance):
         self.manager.transition.direction = 'left'
         self.manager.current = 'preferences'
 
 
 class PreferencesScreen(MDScreen):
-    """Responsive User Preference Input Screen."""
+    """Enhanced preferences screen with better UX"""
     activity_type = StringProperty("outdoor")
     
     def __init__(self, **kwargs):
@@ -501,195 +951,248 @@ class PreferencesScreen(MDScreen):
         
         layout = MDBoxLayout(orientation='vertical')
         
-        # Toolbar
+        # Enhanced toolbar
         self.toolbar = MDTopAppBar(
             title="Your Preferences",
-            elevation=4,
-            pos_hint={"top": 1},
+            elevation=0,
+            md_bg_color=DS.COLORS['surface'],
+            specific_text_color=DS.COLORS['text_primary'],
             left_action_items=[["arrow-left", lambda x: self.go_back()]]
         )
         layout.add_widget(self.toolbar)
         
+        # Progress indicator
+        progress_bar = MDBoxLayout(
+            size_hint_y=None,
+            height=dp(3),
+            md_bg_color=DS.COLORS['background']
+        )
+        progress_fill = MDWidget(
+            size_hint=(0.5, 1),
+            md_bg_color=DS.COLORS['primary']
+        )
+        progress_bar.add_widget(progress_fill)
+        progress_bar.add_widget(MDWidget(size_hint=(0.5, 1)))
+        layout.add_widget(progress_bar)
+        
         # Scrollable content
         scroll = MDScrollView()
         content = MDBoxLayout(
-            orientation='vertical', 
-            spacing=get_responsive_spacing(),
-            padding=get_responsive_padding(),
+            orientation='vertical',
+            spacing=DS.SPACING['lg'],
+            padding=DS.SPACING['md'],
             size_hint_y=None
         )
         content.bind(minimum_height=content.setter('height'))
         
-        # 1. User ID Card
-        card_id = ResponsiveCard(title="👤 Profile")
-        self.user_id_input = MDTextField(
-            hint_text="User ID (e.g., traveler1)",
-            mode="rectangle",
+        # Helper text
+        content.add_widget(MDLabel(
+            text="Tell us about your preferences",
+            font_size=DS.TYPOGRAPHY['body2'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_secondary'],
+            size_hint_y=None,
+            height=dp(30)
+        ))
+        
+        # 1. Profile Card
+        card_profile = EnhancedCard(title="Profile", card_style='elevated')
+        self.user_id_input = EnhancedTextField(
+            hint_text="Enter your username",
             text="traveler1",
-            size_hint_x=1
+            helper_text="This will be your unique identifier",
+            helper_text_mode="on_focus"
         )
-        card_id.add_widget(self.user_id_input)
-        content.add_widget(card_id)
+        card_profile.add_widget(self.user_id_input)
+        content.add_widget(card_profile)
         
         # 2. Meal Times Card
-        card_meals = ResponsiveCard(title="🍽️ Meal Times (HH:MM)")
+        card_meals = EnhancedCard(title="Dining Schedule", card_style='elevated')
         
-        # Responsive grid - 3 columns on wide screens, 1 on narrow
-        cols = 3 if Window.width >= 400 else 1
+        card_meals.add_widget(MDLabel(
+            text="When do you prefer to eat?",
+            font_size=DS.TYPOGRAPHY['body2'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_secondary'],
+            size_hint_y=None,
+            height=dp(24)
+        ))
+        
         meals_grid = MDGridLayout(
-            cols=cols, 
-            spacing=get_responsive_spacing(), 
+            cols=1 if Window.width < 400 else 3,
+            spacing=DS.SPACING['md'],
             size_hint_y=None,
             adaptive_height=True
         )
         meals_grid.bind(minimum_height=meals_grid.setter('height'))
-
-        self.input_breakfast = MDTextField(
-            text="08:00", 
-            hint_text="Breakfast", 
-            mode="rectangle",
-            size_hint_x=1,
-            size_hint_y=None,
-            height=dp(48)
+        
+        self.input_breakfast = EnhancedTextField(
+            text="08:00",
+            hint_text="Breakfast Time",
+            helper_text="HH:MM format"
         )
-        self.input_lunch = MDTextField(
-            text="12:00", 
-            hint_text="Lunch", 
-            mode="rectangle",
-            size_hint_x=1,
-            size_hint_y=None,
-            height=dp(48)
+        self.input_lunch = EnhancedTextField(
+            text="12:00",
+            hint_text="Lunch Time",
+            helper_text="HH:MM format"
         )
-        self.input_dinner = MDTextField(
-            text="19:00", 
-            hint_text="Dinner", 
-            mode="rectangle",
-            size_hint_x=1,
-            size_hint_y=None,
-            height=dp(48)
+        self.input_dinner = EnhancedTextField(
+            text="19:00",
+            hint_text="Dinner Time",
+            helper_text="HH:MM format"
         )
-
+        
         meals_grid.add_widget(self.input_breakfast)
         meals_grid.add_widget(self.input_lunch)
         meals_grid.add_widget(self.input_dinner)
         
         card_meals.add_widget(meals_grid)
         content.add_widget(card_meals)
-
+        
         # 3. Activity Type Card
-        card_act = ResponsiveCard(title="🎯 Preferred Vibe")
+        card_activity = EnhancedCard(title="Activity Preference", card_style='elevated')
+        
+        card_activity.add_widget(MDLabel(
+            text="What's your preferred activity style?",
+            font_size=DS.TYPOGRAPHY['body2'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_secondary'],
+            size_hint_y=None,
+            height=dp(24)
+        ))
+        
         btn_box = MDBoxLayout(
-            spacing=get_responsive_spacing(), 
-            size_hint_y=None, 
-            height=dp(50)
+            spacing=DS.SPACING['md'],
+            size_hint_y=None,
+            height=DS.TOUCH_TARGET['comfortable']
         )
         
-        self.btn_indoor = MDRectangleFlatButton(
-            text="🏠 Indoor", 
+        self.btn_indoor = MDFillRoundFlatButton(
+            text="Indoor",
             size_hint_x=0.5,
+            font_size=DS.TYPOGRAPHY['body1'],
             on_release=lambda x: self.set_activity("indoor")
         )
-        self.btn_outdoor = MDRaisedButton(
-            text="🌳 Outdoor", 
+        self.btn_outdoor = MDFillRoundFlatButton(
+            text="Outdoor",
             size_hint_x=0.5,
+            font_size=DS.TYPOGRAPHY['body1'],
+            md_bg_color=DS.COLORS['primary'],
             on_release=lambda x: self.set_activity("outdoor")
         )
         
         btn_box.add_widget(self.btn_indoor)
         btn_box.add_widget(self.btn_outdoor)
-        card_act.add_widget(btn_box)
-        content.add_widget(card_act)
+        card_activity.add_widget(btn_box)
+        content.add_widget(card_activity)
         
         # 4. Cuisines Card
-        card_food = ResponsiveCard(title="🍴 Favorite Cuisines")
+        card_cuisines = EnhancedCard(title="Cuisine Preferences", card_style='elevated')
+        
+        card_cuisines.add_widget(MDLabel(
+            text="Select your favorite cuisines",
+            font_size=DS.TYPOGRAPHY['body2'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_secondary'],
+            size_hint_y=None,
+            height=dp(24)
+        ))
+        
         self.cuisines = ['Italian', 'French', 'Japanese', 'Mexican', 'Burgers', 'Cafe', 'Seafood']
         self.cuisine_checks = {}
         
-        # Responsive columns - 2 on wide, 1 on narrow
-        cuisine_cols = 2 if Window.width >= 360 else 1
-        grid = MDGridLayout(
-            cols=cuisine_cols, 
-            spacing=get_responsive_spacing(), 
+        cuisine_grid = MDGridLayout(
+            cols=1 if Window.width < 360 else 2,
+            spacing=DS.SPACING['sm'],
             size_hint_y=None,
             adaptive_height=True
         )
-        grid.bind(minimum_height=grid.setter('height'))
+        cuisine_grid.bind(minimum_height=cuisine_grid.setter('height'))
         
         cuisine_emojis = {
-            'Italian': '🍝', 'French': '🥐', 'Japanese': '🍣', 
-            'Mexican': '🌮', 'Burgers': '🍔', 'Cafe': '☕', 'Seafood': '🦐'
+            'Italian': '', 'French': '', 'Japanese': '',
+            'Mexican': '', 'Burgers': '', 'Cafe': '', 'Seafood': ''
         }
         
-        for c in self.cuisines:
-            row = MDBoxLayout(size_hint_y=None, height=dp(45))
-            chk = MDCheckbox(
-                size_hint=(None, None), 
-                size=(dp(45), dp(45))
+        for cuisine in self.cuisines:
+            row = MDCard(
+                orientation='horizontal',
+                size_hint_y=None,
+                height=dp(56),
+                padding=(DS.SPACING['md'], DS.SPACING['sm']),
+                spacing=DS.SPACING['md'],
+                md_bg_color=DS.COLORS['background'],
+                elevation=DS.ELEVATION['none']
             )
-            if c == 'French':
-                chk.active = True
-            self.cuisine_checks[c] = chk
-            row.add_widget(chk)
-            row.add_widget(MDLabel(
-                text=f"{cuisine_emojis.get(c, '')} {c}", 
-                theme_text_color="Primary",
-                font_size=sp(14)
-            ))
-            grid.add_widget(row)
             
-        card_food.add_widget(grid)
-        content.add_widget(card_food)
+            chk = MDCheckbox(
+                size_hint=(None, None),
+                size=(dp(48), dp(48)),
+                active=(cuisine == 'French')
+            )
+            self.cuisine_checks[cuisine] = chk
+            row.add_widget(chk)
+            
+            row.add_widget(MDLabel(
+                text=f"{cuisine}",
+                theme_text_color="Custom",
+                text_color=DS.COLORS['text_primary'],
+                font_size=DS.TYPOGRAPHY['body1']
+            ))
+            
+            cuisine_grid.add_widget(row)
+        
+        card_cuisines.add_widget(cuisine_grid)
+        content.add_widget(card_cuisines)
         
         # Save Button
-        save_btn = MDRaisedButton(
-            text="SAVE & CONTINUE",
-            size_hint_x=1,
+        btn_container = MDBoxLayout(
             size_hint_y=None,
-            height=dp(50),
-            md_bg_color=(0.2, 0.7, 0.3, 1),
-            font_size=sp(16),
+            height=DS.TOUCH_TARGET['comfortable'] + DS.SPACING['md'],
+            padding=(DS.SPACING['md'], DS.SPACING['md'])
+        )
+        
+        save_btn = PrimaryButton(
+            text="CONTINUE",
+            size_hint_x=1,
             on_release=self.save_prefs_thread
         )
-        content.add_widget(save_btn)
+        save_btn.md_bg_color = DS.COLORS['success']
+        btn_container.add_widget(save_btn)
+        content.add_widget(btn_container)
         
         # Bottom padding
-        content.add_widget(MDWidget(size_hint_y=None, height=dp(30)))
+        content.add_widget(MDWidget(size_hint_y=None, height=DS.SPACING['xl']))
         
         scroll.add_widget(content)
         layout.add_widget(scroll)
         self.add_widget(layout)
-
+    
     def set_activity(self, mode):
         self.activity_type = mode
-        theme = MDApp.get_running_app().theme_cls
         if mode == "indoor":
-            self.btn_indoor.md_bg_color = theme.primary_color
-            self.btn_indoor.text_color = (1, 1, 1, 1)
-            self.btn_outdoor.md_bg_color = (0, 0, 0, 0)
-            self.btn_outdoor.text_color = theme.primary_color
+            self.btn_indoor.md_bg_color = DS.COLORS['primary']
+            self.btn_indoor.text_color = DS.COLORS['surface']
+            self.btn_outdoor.md_bg_color = DS.COLORS['background']
+            self.btn_outdoor.text_color = DS.COLORS['primary']
         else:
-            self.btn_outdoor.md_bg_color = theme.primary_color
-            self.btn_outdoor.text_color = (1, 1, 1, 1)
-            self.btn_indoor.md_bg_color = (0, 0, 0, 0)
-            self.btn_indoor.text_color = theme.primary_color
-
+            self.btn_outdoor.md_bg_color = DS.COLORS['primary']
+            self.btn_outdoor.text_color = DS.COLORS['surface']
+            self.btn_indoor.md_bg_color = DS.COLORS['background']
+            self.btn_indoor.text_color = DS.COLORS['primary']
+    
     def go_back(self):
         self.manager.transition.direction = 'right'
         self.manager.current = 'welcome'
-
+    
     def save_prefs_thread(self, instance):
         if not self.user_id_input.text.strip():
-            dialog = MDDialog(
-                title="Error", 
-                text="User ID cannot be empty",
-                buttons=[MDRectangleFlatButton(text="OK", on_release=lambda x: dialog.dismiss())]
-            )
-            dialog.open()
+            self.show_error_dialog("Please enter a username")
             return
         
         self.show_loading()
         threading.Thread(target=self.save_prefs_api, daemon=True).start()
-
+    
     def save_prefs_api(self):
         user_id = self.user_id_input.text.strip()
         
@@ -718,35 +1221,51 @@ class PreferencesScreen(MDScreen):
                 Clock.schedule_once(lambda dt: self.on_save_error(f"Server Error: {response.status_code}"), 0)
         except Exception as e:
             Clock.schedule_once(lambda dt: self.on_save_error(str(e)), 0)
-
+    
     def show_loading(self):
-        self.dialog = MDDialog(
-            text="Connecting to server...",
-            type="custom",
-            content_cls=MDProgressBar(type="indeterminate"),
+        overlay = LoadingOverlay(message="Saving preferences...")
+        
+        # Dim background
+        self.loading_bg = MDWidget(
+            size_hint=(1, 1),
+            md_bg_color=DS.COLORS['overlay']
         )
-        self.dialog.open()
-
+        self.add_widget(self.loading_bg)
+        self.add_widget(overlay)
+        self.loading_overlay = overlay
+    
+    def hide_loading(self):
+        if hasattr(self, 'loading_overlay'):
+            self.remove_widget(self.loading_overlay)
+            self.remove_widget(self.loading_bg)
+    
     def on_save_success(self, dt):
-        if hasattr(self, 'dialog'):
-            self.dialog.dismiss()
+        self.hide_loading()
         self.manager.transition.direction = 'left'
         self.manager.current = 'main'
-        
+    
     def on_save_error(self, error_msg):
-        if hasattr(self, 'dialog'):
-            self.dialog.dismiss()
-        
+        self.hide_loading()
+        self.show_error_dialog(
+            f"Could not save preferences.\n\n{error_msg}\n\nPlease ensure the server is running."
+        )
+    
+    def show_error_dialog(self, message):
         dialog = MDDialog(
-            title="Connection Failed", 
-            text=f"Could not save to API.\n{error_msg}\n\nEnsure server.py is running.",
-            buttons=[MDRectangleFlatButton(text="OK", on_release=lambda x: dialog.dismiss())]
+            title="Error",
+            text=message,
+            buttons=[
+                SecondaryButton(
+                    text="OK",
+                    on_release=lambda x: dialog.dismiss()
+                )
+            ]
         )
         dialog.open()
 
 
 class MainScreen(MDScreen):
-    """Responsive Dashboard showing Context and Recommendations with Real-Time Notifications."""
+    """Premium dashboard with enhanced visuals"""
     
     notification_count = NumericProperty(0)
     ws_connected = BooleanProperty(False)
@@ -763,70 +1282,160 @@ class MainScreen(MDScreen):
         
         layout = MDBoxLayout(orientation='vertical')
         
-        # Toolbar
+        # Enhanced toolbar with elevation
         self.toolbar = MDTopAppBar(
             title="Explore Montreal",
+            elevation=0,
+            md_bg_color=DS.COLORS['primary'],
+            specific_text_color=DS.COLORS['surface'],
             right_action_items=[
                 ["refresh", lambda x: self.refresh_data()],
                 ["bell-outline", lambda x: self.show_notification_history()],
                 ["cog", lambda x: self.go_to_settings()]
-            ],
-            elevation=4
+            ]
         )
         layout.add_widget(self.toolbar)
         
-        # Connection Status Bar
-        self.status_bar = MDBoxLayout(
+        # Enhanced status bar
+        self.status_bar = MDCard(
+            orientation='horizontal',
             size_hint_y=None,
-            height=dp(25),
-            md_bg_color=(0.95, 0.95, 0.95, 1),
-            padding=(get_responsive_padding(), 0)
+            height=dp(36),
+            md_bg_color=(*DS.COLORS['error'][:3], 0.1),
+            padding=(DS.SPACING['md'], DS.SPACING['sm']),
+            spacing=DS.SPACING['sm'],
+            elevation=DS.ELEVATION['none']
         )
+        
+        status_dot = MDWidget(
+            size_hint=(None, None),
+            size=(dp(10), dp(10))
+        )
+        # Add colored circle using canvas
+        with status_dot.canvas:
+            status_dot.color_instruction = Color(*DS.COLORS['error'])
+            status_dot.ellipse = Ellipse(
+                pos=status_dot.pos,
+                size=status_dot.size
+            )
+        
+        # Update ellipse position when widget moves
+        def update_ellipse(instance, value):
+            status_dot.ellipse.pos = instance.pos
+            status_dot.ellipse.size = instance.size
+        
+        status_dot.bind(pos=update_ellipse, size=update_ellipse)
+        self.status_dot = status_dot
+        
         self.status_label = MDLabel(
-            text="● Disconnected",
-            font_size=sp(11),
+            text="Disconnected",
+            font_size=DS.TYPOGRAPHY['caption'],
             theme_text_color="Custom",
-            text_color=(0.7, 0.2, 0.2, 1),
-            valign='center'
+            text_color=DS.COLORS['error'],
+            bold=True
         )
+        
+        self.status_bar.add_widget(status_dot)
         self.status_bar.add_widget(self.status_label)
         layout.add_widget(self.status_bar)
         
-        # Scrollable Content
+        # Scrollable content
         self.scroll = MDScrollView()
         self.content = MDBoxLayout(
-            orientation='vertical', 
-            spacing=get_responsive_spacing(), 
-            padding=get_responsive_padding(), 
+            orientation='vertical',
+            spacing=DS.SPACING['lg'],
+            padding=DS.SPACING['md'],
             size_hint_y=None
         )
         self.content.bind(minimum_height=self.content.setter('height'))
         
-        # Context Card
-        self.context_card = ResponsiveCard(title="📍 Current Context")
-        self.context_label = MDLabel(
-            text="Loading context...", 
-            theme_text_color="Secondary", 
-            size_hint_y=None, 
-            height=dp(50),
-            font_size=sp(14)
+        # Context Card with enhanced styling
+        self.context_card = EnhancedCard(title="Current Context", card_style='elevated')
+        
+        # Context content box with better layout
+        context_content = MDBoxLayout(
+            orientation='vertical',
+            spacing=DS.SPACING['sm'],
+            size_hint_y=None,
+            height=dp(90),
+            padding=(DS.SPACING['sm'], 0)
         )
-        self.context_card.add_widget(self.context_label)
+        
+        # Weather row - no icon, just clean text
+        self.weather_row = MDBoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(32),
+            spacing=DS.SPACING['sm']
+        )
+        self.weather_text = MDLabel(
+            text="Loading weather...",
+            font_size=DS.TYPOGRAPHY['body1'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_primary'],
+            bold=True,
+            valign='center'
+        )
+        self.weather_row.add_widget(self.weather_text)
+        context_content.add_widget(self.weather_row)
+        
+        # Time row - no icon, clean text
+        self.time_row = MDBoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(28),
+            spacing=DS.SPACING['sm']
+        )
+        self.time_text = MDLabel(
+            text="Loading time...",
+            font_size=DS.TYPOGRAPHY['body2'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_secondary'],
+            valign='center'
+        )
+        self.time_row.add_widget(self.time_text)
+        context_content.add_widget(self.time_row)
+        
+        # Location row - no icon, clean text
+        self.location_row = MDBoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(28),
+            spacing=DS.SPACING['sm']
+        )
+        self.location_text = MDLabel(
+            text="Loading location...",
+            font_size=DS.TYPOGRAPHY['caption'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_hint'],
+            valign='center'
+        )
+        self.location_row.add_widget(self.location_text)
+        context_content.add_widget(self.location_row)
+        
+        self.context_card.add_widget(context_content)
         self.content.add_widget(self.context_card)
         
-        # Recommendations Header
-        self.content.add_widget(MDLabel(
-            text="🎯 Recommended for You", 
-            font_size=sp(18),
+        # Section header
+        header_box = MDBoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(40),
+            spacing=DS.SPACING['sm']
+        )
+        header_box.add_widget(MDLabel(
+            text="Recommended for You",
+            font_size=DS.TYPOGRAPHY['h5'],
             bold=True,
-            size_hint_y=None, 
-            height=dp(35)
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_primary']
         ))
+        self.content.add_widget(header_box)
         
-        # Recommendations Container
+        # Recommendations container
         self.recs_box = MDBoxLayout(
-            orientation='vertical', 
-            spacing=get_responsive_spacing(), 
+            orientation='vertical',
+            spacing=DS.SPACING['md'],
             size_hint_y=None
         )
         self.recs_box.bind(minimum_height=self.recs_box.setter('height'))
@@ -835,9 +1444,8 @@ class MainScreen(MDScreen):
         self.scroll.add_widget(self.content)
         layout.add_widget(self.scroll)
         self.add_widget(layout)
-
+    
     def on_enter(self):
-        """Called when screen is displayed."""
         app = App.get_running_app()
         
         if app.user_id and WEBSOCKET_AVAILABLE:
@@ -847,19 +1455,17 @@ class MainScreen(MDScreen):
         self.refresh_data()
     
     def on_leave(self):
-        """Called when leaving screen."""
         if hasattr(self, 'context_update_event'):
             self.context_update_event.cancel()
     
     def start_notification_client(self):
-        """Initialize and start WebSocket notification client."""
         app = App.get_running_app()
         
         if self.notification_client:
             self.notification_client.disconnect()
         
         if not WEBSOCKET_AVAILABLE:
-            logger.warning("WebSocket not available, using polling fallback")
+            logger.warning("WebSocket not available")
             return
         
         self.notification_client = NotificationClient(
@@ -870,19 +1476,19 @@ class MainScreen(MDScreen):
         self.notification_client.connect()
     
     def on_ws_connection_change(self, connected):
-        """Handle WebSocket connection status changes."""
         self.ws_connected = connected
         if connected:
-            self.status_label.text = "● Connected (Live)"
-            self.status_label.text_color = (0.2, 0.7, 0.2, 1)
-            self.status_bar.md_bg_color = (0.92, 1, 0.92, 1)
+            self.status_label.text = "Connected - Live Updates"
+            self.status_label.text_color = DS.COLORS['success']
+            self.status_dot.color_instruction.rgba = DS.COLORS['success']
+            self.status_bar.md_bg_color = (*DS.COLORS['success'][:3], 0.1)
         else:
-            self.status_label.text = "● Disconnected"
-            self.status_label.text_color = (0.7, 0.2, 0.2, 1)
-            self.status_bar.md_bg_color = (1, 0.92, 0.92, 1)
+            self.status_label.text = "Disconnected"
+            self.status_label.text_color = DS.COLORS['error']
+            self.status_dot.color_instruction.rgba = DS.COLORS['error']
+            self.status_bar.md_bg_color = (*DS.COLORS['error'][:3], 0.1)
     
     def handle_notification(self, notification):
-        """Handle incoming notification from WebSocket."""
         notif_type = notification.get('type', 'info')
         title = notification.get('title', 'Notification')
         message = notification.get('message', '')
@@ -902,18 +1508,17 @@ class MainScreen(MDScreen):
         self.notification_count = len(self.notification_history)
         self.update_bell_icon()
         
-        if notif_type != 'connection_established' and notif_type != 'pong':
+        if notif_type not in ['connection_established', 'pong']:
             self.show_notification_banner(title, message, notif_type)
             
             if notif_type in ['location_change', 'weather_change', 'preferences_updated', 'meal_time']:
                 Clock.schedule_once(lambda dt: self.refresh_data(), 1)
     
     def show_notification_banner(self, title, message, notif_type="info"):
-        """Display a notification banner at the top of the screen."""
         if self.current_banner and self.current_banner.parent:
             self.current_banner.parent.remove_widget(self.current_banner)
         
-        self.current_banner = NotificationBanner(
+        self.current_banner = EnhancedNotificationBanner(
             title=title,
             message=message,
             notif_type=notif_type,
@@ -921,17 +1526,15 @@ class MainScreen(MDScreen):
         )
         
         self.add_widget(self.current_banner)
-        Clock.schedule_once(lambda dt: self.current_banner.dismiss() if self.current_banner else None, 5)
+        Clock.schedule_once(lambda dt: self.current_banner.dismiss() if self.current_banner else None, 6)
     
     def update_bell_icon(self):
-        """Update the bell icon to show notification count."""
         if self.notification_count > 0:
             self.toolbar.right_action_items[1] = ["bell", lambda x: self.show_notification_history()]
         else:
             self.toolbar.right_action_items[1] = ["bell-outline", lambda x: self.show_notification_history()]
     
     def send_context_update(self, dt=None):
-        """Send current context to server for change detection."""
         app = App.get_running_app()
         
         if not app.user_id:
@@ -962,26 +1565,35 @@ class MainScreen(MDScreen):
                 logger.error(f"Context update failed: {e}")
         
         threading.Thread(target=_send, daemon=True).start()
-
+    
     def go_to_settings(self):
-        """Navigate back to preference screen to change settings."""
         self.manager.transition.direction = 'right'
         self.manager.current = 'preferences'
-
+    
     def refresh_data(self):
         app = App.get_running_app()
         
         if not app.user_id:
-            def redirect_to_prefs(dt):
-                self.manager.current = 'preferences'
-            
-            self.show_toast("Please sign in first")
-            Clock.schedule_once(redirect_to_prefs, 1)
+            self.manager.current = 'preferences'
             return
-
-        self.toolbar.title = "Updating..."
+        
+        # Show loading state
+        self.show_loading_state()
         threading.Thread(target=self.fetch_api_data, daemon=True).start()
-
+    
+    def show_loading_state(self):
+        """Show loading skeleton"""
+        self.weather_text.text = "Loading weather..."
+        self.time_text.text = "Loading time..."
+        self.location_text.text = "Loading location..."
+        self.recs_box.clear_widgets()
+        
+        # Add skeleton cards
+        for i in range(3):
+            skeleton = EnhancedCard(show_title=False, card_style='filled')
+            skeleton.add_widget(MDWidget(size_hint_y=None, height=dp(100)))
+            self.recs_box.add_widget(skeleton)
+    
     def fetch_api_data(self):
         app = App.get_running_app()
         
@@ -1000,17 +1612,16 @@ class MainScreen(MDScreen):
                 data = response.json()
                 Clock.schedule_once(lambda dt: self.update_ui(data), 0)
             else:
-                err_msg = f"API Error {response.status_code}: {response.text}"
+                err_msg = f"Server returned error {response.status_code}"
                 Clock.schedule_once(lambda dt: self.show_error(err_msg), 0)
                 
         except requests.exceptions.ConnectionError:
-            Clock.schedule_once(lambda dt: self.show_error("Connection Refused.\nIs server.py running?"), 0)
+            Clock.schedule_once(lambda dt: self.show_error("Cannot connect to server"), 0)
         except Exception as e:
             Clock.schedule_once(lambda dt: self.show_error(str(e)), 0)
-
+    
     def update_ui(self, data):
         app = App.get_running_app()
-        self.toolbar.title = "Explore Montreal"
         
         context = data.get("context", {})
         recs = data.get("recommendations", [])
@@ -1019,141 +1630,272 @@ class MainScreen(MDScreen):
         temp = context.get("temperature", "N/A")
         period = context.get("time_period", "N/A")
         
-        # Weather emoji
-        weather_emoji = {"sunny": "☀️", "cloudy": "☁️", "rainy": "🌧️", "snowy": "❄️"}.get(context.get("weather", ""), "🌤️")
-        
-        self.context_label.text = f"{weather_emoji} {weather} ({temp}°C) | 🕐 {period}\n📍 {app.latitude:.4f}, {app.longitude:.4f}"
+        # Update context card fields - clean text without icons
+        self.weather_text.text = f"{weather} • {temp}°C"
+        self.time_text.text = period
+        self.location_text.text = f"{app.latitude:.4f}, {app.longitude:.4f}"
         
         self.recs_box.clear_widgets()
         
         if not recs:
-            empty_card = ResponsiveCard(show_title=False)
-            empty_card.add_widget(MDLabel(
-                text="No recommendations found for this area/time.", 
-                halign="center", 
-                theme_text_color="Secondary",
-                font_size=sp(14)
+            empty_state = EnhancedCard(show_title=False, card_style='outlined')
+            empty_box = MDBoxLayout(
+                orientation='vertical',
+                spacing=DS.SPACING['md'],
+                padding=DS.SPACING['lg']
+            )
+            empty_box.add_widget(MDLabel(
+                text="🔍",
+                font_size=sp(48),
+                halign='center',
+                size_hint_y=None,
+                height=dp(60)
             ))
-            self.recs_box.add_widget(empty_card)
+            empty_box.add_widget(MDLabel(
+                text="No recommendations found",
+                font_size=DS.TYPOGRAPHY['h6'],
+                halign='center',
+                theme_text_color='Custom',
+                text_color=DS.COLORS['text_primary'],
+                bold=True,
+                size_hint_y=None,
+                height=dp(30)
+            ))
+            empty_box.add_widget(MDLabel(
+                text="Try adjusting your preferences or location",
+                font_size=DS.TYPOGRAPHY['body2'],
+                halign='center',
+                theme_text_color='Custom',
+                text_color=DS.COLORS['text_secondary'],
+                size_hint_y=None,
+                height=dp(40)
+            ))
+            empty_state.add_widget(empty_box)
+            self.recs_box.add_widget(empty_state)
             return
         
-        for r in recs:
-            card = self.create_recommendation_card(r)
+        for rec in recs:
+            card = self.create_recommendation_card(rec)
             self.recs_box.add_widget(card)
-
+    
     def create_recommendation_card(self, rec):
-        """Create a responsive recommendation card."""
-        # Responsive height based on content
-        card_height = dp(120) if Window.width < 400 else dp(130)
+        """Create premium recommendation card with enhanced visual design"""
+        card = EnhancedCard(show_title=False, card_style='elevated')
         
-        card = MDCard(
+        # Main content container
+        content = MDBoxLayout(
             orientation='vertical',
-            padding=get_responsive_padding(),
-            spacing=dp(5),
+            spacing=DS.SPACING['sm'],
             size_hint_y=None,
-            height=card_height,
-            radius=[dp(10)],
-            elevation=1,
-            md_bg_color=(1, 1, 1, 1)
+            height=dp(140)
         )
         
-        # Header row with name and rating
-        header = MDBoxLayout(size_hint_y=None, height=dp(28))
+        # Header with name and rating badge
+        header = MDBoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(32),
+            spacing=DS.SPACING['sm']
+        )
         
         name = rec.get('name', 'Unknown')
-        # Truncate name on small screens
-        max_name_len = 25 if Window.width < 400 else 35
+        max_name_len = 28 if Window.width < 400 else 38
         if len(name) > max_name_len:
             name = name[:max_name_len] + "..."
         
         header.add_widget(MDLabel(
-            text=name, 
-            font_size=sp(15),
+            text=name,
+            font_size=DS.TYPOGRAPHY['h6'],
             bold=True,
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_primary'],
             shorten=True,
             shorten_from='right'
         ))
         
+        # Rating badge with yellow background
         if rec.get('rating'):
-            header.add_widget(MDLabel(
-                text=f"⭐ {rec['rating']}", 
-                halign='right', 
-                theme_text_color="Secondary",
-                size_hint_x=0.25,
-                font_size=sp(13)
-            ))
-        card.add_widget(header)
+            rating_card = MDCard(
+                size_hint=(None, None),
+                size=(dp(65), dp(28)),
+                md_bg_color=(1, 0.95, 0.8, 1),  # Light yellow
+                elevation=DS.ELEVATION['none'],
+                padding=(DS.SPACING['sm'], 0)
+            )
+            rating_label = MDLabel(
+                text=f"★ {rec['rating']}",
+                font_size=DS.TYPOGRAPHY['caption'],
+                bold=True,
+                halign='center',
+                valign='center',
+                theme_text_color='Custom',
+                text_color=(0.8, 0.6, 0, 1)  # Gold color
+            )
+            rating_card.add_widget(rating_label)
+            header.add_widget(rating_card)
         
-        # Description
+        content.add_widget(header)
+        
+        # Type/Category - clean text without icon
+        type_row = MDBoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(22),
+            spacing=DS.SPACING['xs']
+        )
+        
         desc = rec.get('description', '') or rec.get('type', '')
-        card.add_widget(MDLabel(
-            text=desc, 
-            theme_text_color="Secondary", 
-            font_size=sp(12),
-            size_hint_y=None, 
-            height=dp(18)
-        ))
+        max_desc_len = 40 if Window.width < 400 else 50
+        if len(desc) > max_desc_len:
+            desc = desc[:max_desc_len] + "..."
         
-        # Reason
+        type_row.add_widget(MDLabel(
+            text=desc,
+            font_size=DS.TYPOGRAPHY['body2'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_secondary']
+        ))
+        content.add_widget(type_row)
+        
+        # Reason with enhanced styling - no icon in badge
         reason = rec.get('reason', '')
-        max_reason_len = 50 if Window.width < 400 else 70
+        max_reason_len = 55 if Window.width < 400 else 75
         if len(reason) > max_reason_len:
             reason = reason[:max_reason_len] + "..."
         
-        card.add_widget(MDLabel(
-            text=f"💡 {reason}", 
-            theme_text_color="Primary", 
-            font_size=sp(11),
-            size_hint_y=None, 
-            height=dp(18)
-        ))
+        reason_card = MDCard(
+            size_hint_y=None,
+            height=dp(32),
+            md_bg_color=(*DS.COLORS['primary'][:3], 0.08),
+            elevation=DS.ELEVATION['none'],
+            padding=(DS.SPACING['sm'], DS.SPACING['xs'])
+        )
+        reason_label = MDLabel(
+            text=reason,
+            font_size=DS.TYPOGRAPHY['caption'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['primary'],
+            italic=True,
+            valign='center'
+        )
+        reason_card.add_widget(reason_label)
+        content.add_widget(reason_card)
         
-        # Bottom row with distance and navigate button
-        row = MDBoxLayout(size_hint_y=None, height=dp(35))
+        # Footer with distance and navigate button
+        footer = MDBoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(44),
+            spacing=DS.SPACING['md']
+        )
+        
+        # Distance - clean text without icon
         dist = rec.get('distance', 0)
         if dist > 1000:
-            dist_str = f"{dist/1000:.1f}km"
+            dist_str = f"{dist/1000:.1f} km away"
         else:
-            dist_str = f"{dist}m"
-            
-        row.add_widget(MDLabel(
-            text=f"📍 {dist_str}", 
-            theme_text_color="Hint", 
-            font_size=sp(12),
+            dist_str = f"{dist} m away"
+        
+        distance_box = MDBoxLayout(
+            orientation='horizontal',
+            spacing=DS.SPACING['xs']
+        )
+        distance_box.add_widget(MDLabel(
+            text=dist_str,
+            font_size=DS.TYPOGRAPHY['caption'],
+            theme_text_color='Custom',
+            text_color=DS.COLORS['text_hint'],
             valign='center'
         ))
+        footer.add_widget(distance_box)
         
-        nav_btn = MDRectangleFlatButton(
-            text="NAVIGATE", 
-            font_size=sp(11),
+        # Enhanced NAVIGATE button with dark jade green
+        nav_btn = MDRaisedButton(
+            text="NAVIGATE",
             size_hint_x=None,
-            width=dp(90)
+            width=dp(120),
+            height=dp(40),
+            md_bg_color=DS.COLORS['primary'],
+            font_size=DS.TYPOGRAPHY['body2'],
+            elevation=DS.ELEVATION['medium'],
+            on_release=lambda x: self.navigate_to_place(rec)
         )
-        row.add_widget(nav_btn)
-        card.add_widget(row)
+        footer.add_widget(nav_btn)
+        
+        content.add_widget(footer)
+        card.add_widget(content)
         
         return card
-
+    
     def show_error(self, msg):
-        self.toolbar.title = "Explore Montreal"
-        self.show_toast(f"Error: {msg}")
-
+        Snackbar(
+            text=f"Error: {msg}",
+            snackbar_x="10dp",
+            snackbar_y="10dp",
+            size_hint_x=.9,
+            bg_color=DS.COLORS['error']
+        ).open()
+    
+    def navigate_to_place(self, recommendation):
+        """Open Google Maps navigation to the recommended place"""
+        try:
+            latitude = recommendation.get('latitude')
+            longitude = recommendation.get('longitude')
+            name = recommendation.get('name', '')
+            
+            if latitude and longitude:
+                # Try to open navigation
+                success = open_google_maps_navigation(latitude, longitude, name)
+                
+                if success:
+                    Snackbar(
+                        text=f"Opening navigation to {name}...",
+                        snackbar_x="10dp",
+                        snackbar_y="10dp",
+                        size_hint_x=.9,
+                        bg_color=DS.COLORS['success'],
+                        duration=2
+                    ).open()
+                else:
+                    # Fallback: try just viewing location
+                    success = open_google_maps_location(latitude, longitude, name)
+                    if success:
+                        Snackbar(
+                            text=f"Opening {name} in Maps...",
+                            snackbar_x="10dp",
+                            snackbar_y="10dp",
+                            size_hint_x=.9,
+                            bg_color=DS.COLORS['info'],
+                            duration=2
+                        ).open()
+                    else:
+                        raise Exception("Could not open maps")
+            else:
+                Snackbar(
+                    text="Location coordinates not available",
+                    snackbar_x="10dp",
+                    snackbar_y="10dp",
+                    size_hint_x=.9,
+                    bg_color=DS.COLORS['warning']
+                ).open()
+                
+        except Exception as e:
+            logger.error(f"Navigation error: {e}")
+            Snackbar(
+                text="Could not open Google Maps",
+                snackbar_x="10dp",
+                snackbar_y="10dp",
+                size_hint_x=.9,
+                bg_color=DS.COLORS['error']
+            ).open()
+    
     def show_notification_history(self):
-        """Show notification history screen."""
         self.manager.transition.direction = 'left'
         self.manager.current = 'notifications'
 
-    def show_toast(self, text):
-        dialog = MDDialog(
-            title="Info", 
-            text=text, 
-            buttons=[MDRectangleFlatButton(text="OK", on_release=lambda x: dialog.dismiss())]
-        )
-        dialog.open()
-
 
 class NotificationHistoryScreen(MDScreen):
-    """Responsive screen showing notification history."""
+    """Enhanced notification history screen"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -1167,18 +1909,20 @@ class NotificationHistoryScreen(MDScreen):
         # Toolbar
         self.toolbar = MDTopAppBar(
             title="Notifications",
-            elevation=4,
+            elevation=0,
+            md_bg_color=DS.COLORS['surface'],
+            specific_text_color=DS.COLORS['text_primary'],
             left_action_items=[["arrow-left", lambda x: self.go_back()]],
             right_action_items=[["delete", lambda x: self.clear_notifications()]]
         )
         layout.add_widget(self.toolbar)
         
-        # Notification List
+        # Notification list
         self.scroll = MDScrollView()
         self.list_container = MDBoxLayout(
             orientation='vertical',
-            spacing=get_responsive_spacing(),
-            padding=get_responsive_padding(),
+            spacing=DS.SPACING['md'],
+            padding=DS.SPACING['md'],
             size_hint_y=None
         )
         self.list_container.bind(minimum_height=self.list_container.setter('height'))
@@ -1188,142 +1932,183 @@ class NotificationHistoryScreen(MDScreen):
         self.add_widget(layout)
     
     def on_enter(self):
-        """Refresh notification list when entering screen."""
         self.refresh_list()
     
     def refresh_list(self):
-        """Populate the notification list."""
         self.list_container.clear_widgets()
         
         main_screen = self.manager.get_screen('main')
         notifications = main_screen.notification_history
         
         if not notifications:
-            empty_card = ResponsiveCard(show_title=False)
-            empty_card.add_widget(MDLabel(
-                text="📭 No notifications yet",
+            # Enhanced empty state
+            empty_state = EnhancedCard(show_title=False, card_style='outlined')
+            empty_box = MDBoxLayout(
+                orientation='vertical',
+                spacing=DS.SPACING['md'],
+                padding=DS.SPACING['xxl']
+            )
+            empty_box.add_widget(MDLabel(
+                text="📭",
+                font_size=sp(60),
                 halign='center',
-                font_size=sp(16),
-                theme_text_color='Secondary'
+                size_hint_y=None,
+                height=dp(80)
             ))
-            empty_card.add_widget(MDLabel(
+            empty_box.add_widget(MDLabel(
+                text="No notifications yet",
+                font_size=DS.TYPOGRAPHY['h5'],
+                halign='center',
+                theme_text_color='Custom',
+                text_color=DS.COLORS['text_primary'],
+                bold=True,
+                size_hint_y=None,
+                height=dp(36)
+            ))
+            empty_box.add_widget(MDLabel(
                 text="Context changes will appear here",
+                font_size=DS.TYPOGRAPHY['body2'],
                 halign='center',
-                font_size=sp(12),
-                theme_text_color='Hint'
+                theme_text_color='Custom',
+                text_color=DS.COLORS['text_secondary'],
+                size_hint_y=None,
+                height=dp(30)
             ))
-            self.list_container.add_widget(empty_card)
+            empty_state.add_widget(empty_box)
+            self.list_container.add_widget(empty_state)
             return
         
-        # Emoji/icon mapping
-        icon_map = {
-            "location_change": "📍",
-            "weather_change": "🌤️",
-            "time_period_change": "🕐",
-            "meal_time": "🍽️",
-            "temperature_change": "🌡️",
-            "preferences_updated": "⚙️",
-            "connection_established": "✅",
-        }
-        
-        # Color mapping
+        # Color mapping only (no icons)
         color_map = {
-            "location_change": (0.92, 0.96, 1, 1),
-            "weather_change": (1, 0.97, 0.92, 1),
-            "time_period_change": (0.96, 0.92, 1, 1),
-            "meal_time": (0.92, 1, 0.94, 1),
-            "temperature_change": (1, 0.94, 0.92, 1),
-            "preferences_updated": (0.94, 0.97, 1, 1),
-            "connection_established": (0.92, 1, 0.94, 1),
+            "location_change": DS.COLORS['info'],
+            "weather_change": DS.COLORS['warning'],
+            "time_period_change": (0.51, 0.37, 0.85, 1),
+            "meal_time": DS.COLORS['success'],
+            "temperature_change": DS.COLORS['error'],
+            "preferences_updated": DS.COLORS['primary'],
+            "connection_established": DS.COLORS['success'],
         }
         
         for notif in reversed(notifications):
             notif_type = notif.get('type', 'info')
-            icon = icon_map.get(notif_type, "🔔")
-            bg_color = color_map.get(notif_type, (0.96, 0.96, 0.96, 1))
+            color = color_map.get(notif_type, DS.COLORS['text_secondary'])
             
             try:
                 ts = datetime.fromisoformat(notif['timestamp'].replace('Z', '+00:00'))
-                time_str = ts.strftime("%H:%M - %b %d")
+                time_str = ts.strftime("%I:%M %p • %b %d")
             except:
                 time_str = ""
             
-            # Responsive card height
-            card_height = dp(75) if Window.width < 400 else dp(85)
-            
-            card = MDCard(
-                orientation='vertical',
-                padding=get_responsive_padding(),
-                spacing=dp(4),
-                size_hint_y=None,
-                height=card_height,
-                radius=[dp(8)],
-                md_bg_color=bg_color,
-                elevation=1
-            )
+            # Enhanced notification card
+            card = EnhancedCard(show_title=False, card_style='elevated')
             
             # Header
-            header = MDBoxLayout(size_hint_y=None, height=dp(22))
-            header.add_widget(MDLabel(
-                text=f"{icon}  {notif['title']}",
-                font_size=sp(14),
+            header = MDBoxLayout(
+                orientation='horizontal',
+                size_hint_y=None,
+                height=dp(28),
+                spacing=DS.SPACING['sm']
+            )
+            
+            # Colored dot indicator (no icon)
+            dot_widget = MDWidget(
+                size_hint=(None, None),
+                size=(dp(12), dp(12))
+            )
+            with dot_widget.canvas:
+                Color(*color)
+                dot = Ellipse(pos=dot_widget.pos, size=dot_widget.size)
+            
+            def update_dot(instance, value, dot_ref=dot):
+                dot_ref.pos = instance.pos
+                dot_ref.size = instance.size
+            
+            dot_widget.bind(pos=update_dot, size=update_dot)
+            
+            # Wrapper for centering the dot
+            dot_container = MDBoxLayout(
+                orientation='horizontal',
+                size_hint=(None, None),
+                size=(dp(28), dp(28))
+            )
+            dot_container.add_widget(MDWidget(size_hint_x=None, width=dp(8)))
+            dot_container.add_widget(dot_widget)
+            header.add_widget(dot_container)
+            
+            # Title and time
+            title_box = MDBoxLayout(orientation='vertical', spacing=dp(2))
+            title_box.add_widget(MDLabel(
+                text=notif['title'],
+                font_size=DS.TYPOGRAPHY['body1'],
                 bold=True,
-                theme_text_color='Primary'
+                theme_text_color='Custom',
+                text_color=DS.COLORS['text_primary']
             ))
-            header.add_widget(MDLabel(
+            title_box.add_widget(MDLabel(
                 text=time_str,
-                font_size=sp(11),
-                halign='right',
-                theme_text_color='Hint',
-                size_hint_x=0.35
+                font_size=DS.TYPOGRAPHY['caption'],
+                theme_text_color='Custom',
+                text_color=DS.COLORS['text_hint']
             ))
+            header.add_widget(title_box)
+            
             card.add_widget(header)
             
             # Message
             message = notif['message']
-            max_msg_len = 60 if Window.width < 400 else 80
+            max_msg_len = 80 if Window.width < 400 else 100
             if len(message) > max_msg_len:
                 message = message[:max_msg_len] + "..."
             
             card.add_widget(MDLabel(
                 text=message,
-                font_size=sp(12),
-                theme_text_color='Secondary',
+                font_size=DS.TYPOGRAPHY['body2'],
+                theme_text_color='Custom',
+                text_color=DS.COLORS['text_secondary'],
                 size_hint_y=None,
-                height=dp(35)
+                height=dp(44),
+                padding=(DS.SPACING['sm'], 0)
             ))
             
             self.list_container.add_widget(card)
     
     def clear_notifications(self):
-        """Clear all notifications."""
         main_screen = self.manager.get_screen('main')
         main_screen.notification_history = []
         main_screen.notification_count = 0
         main_screen.update_bell_icon()
         self.refresh_list()
         
-        Snackbar(text="Notifications cleared").open()
+        Snackbar(
+            text="All notifications cleared",
+            bg_color=DS.COLORS['success']
+        ).open()
     
     def go_back(self):
         self.manager.transition.direction = 'right'
         self.manager.current = 'main'
 
 
-# --- 10. App Entry Point ---
+# ============================================================================
+# APP CLASS
+# ============================================================================
 
 class MontrealCompanionApp(MDApp):
     user_id = StringProperty(None)
     preferences = DictProperty({})
     latitude = NumericProperty(45.5017)
     longitude = NumericProperty(-73.5673)
-
+    
     def build(self):
-        self.theme_cls.primary_palette = "Indigo"
-        self.theme_cls.accent_palette = "Pink"
+        # Apply custom theme (KivyMD 1.2.0 compatible)
+        self.theme_cls.primary_palette = "Teal"  # Closest to jade green
+        self.theme_cls.accent_palette = "Green"
         self.theme_cls.theme_style = "Light"
         self.theme_cls.material_style = "M3"
-
+        
+        # Note: In KivyMD 1.2.0, primary_color is read-only
+        # We use our Design System colors directly in components
+        
         sm = MDScreenManager()
         sm.add_widget(WelcomeScreen(name='welcome'))
         sm.add_widget(PreferencesScreen(name='preferences'))
@@ -1331,9 +2116,8 @@ class MontrealCompanionApp(MDApp):
         sm.add_widget(NotificationHistoryScreen(name='notifications'))
         
         return sm
-
+    
     def on_start(self):
-        # Request permissions on Android
         if GPS_AVAILABLE:
             try:
                 if platform == 'android':
@@ -1342,13 +2126,12 @@ class MontrealCompanionApp(MDApp):
                 gps.start(minTime=10000, minDistance=10)
             except Exception as e:
                 logging.warning(f"GPS Error: {e}")
-
+    
     def on_gps_location(self, **kwargs):
         self.latitude = kwargs.get('lat', self.latitude)
         self.longitude = kwargs.get('lon', self.longitude)
     
     def on_stop(self):
-        """Clean up when app closes."""
         try:
             main_screen = self.root.get_screen('main')
             if main_screen.notification_client:
