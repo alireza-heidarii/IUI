@@ -114,8 +114,8 @@ else:
     Window.softinput_mode = 'below_target'
 
 # API Configuration
-API_BASE_URL = "http://192.168.2.18:8000"
-WS_BASE_URL = "ws://192.168.2.18:8000"
+API_BASE_URL = "http://IP:8000"
+WS_BASE_URL = "ws://IP:8000"
 
 
 # ============================================================================
@@ -2140,3 +2140,4 @@ class MontrealCompanionApp(MDApp):
 
 if __name__ == '__main__':
     MontrealCompanionApp().run()
+
